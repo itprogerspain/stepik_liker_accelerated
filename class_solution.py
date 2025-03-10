@@ -1,33 +1,34 @@
-from class_logger import get_logger
-
 from selenium.webdriver.remote.webelement import WebElement
+from time import sleep
+import random
 from selenium.webdriver.common.by import By
+from class_logger import get_logger
 
 logger = get_logger('class_solution')
 
 class Solution:
-    def __init__(self, sol: WebElement):
-        self.sol = sol
-        user = sol.find_element(By.CLASS_NAME, 'comments-user-badge__name')
-        self.user_name = user.text
-        self.user_id = user.get_attribute('href').split('/')[-1].strip()
-        self.voted = bool(sol.find_elements(By.CSS_SELECTOR, "[data-is-epic]"))
-        self.like_btn, self.dislike_btn = sol.find_elements(By.CLASS_NAME, 'ui-vote__like')
-        self.n_likes = int('0' + sol.find_element(By.CSS_SELECTOR, "[data-type='like']").text)
-        self.n_dislikes = int('0' + sol.find_element(By.CSS_SELECTOR, "[data-type='dislike']").text)
+    def __init__(self, raw_solution):
+        self.sol = raw_solution
+        self.voted = False
+        self.user_id = self.sol.get_attribute('data-author-id')
+        try:
+            like_button = self.sol.find_element(By.CLASS_NAME, 'like-button')
+            if 'like-button--active' in like_button.get_attribute('class'):
+                self.voted = True
+        except Exception as e:
+            logger.warning(f"Failed to check if solution is liked: {str(e)}")
 
     def like(self):
         try:
-            self.like_btn.click()
+            like_button = self.sol.find_element(By.CLASS_NAME, 'like-button')
+            if 'like-button--active' not in like_button.get_attribute('class'):
+                like_button.click()
+                sleep(random.uniform(1, 3))  # Задержка после лайка
+                self.voted = True
+                logger.debug(f'Liked solution by user {self.user_id}')
         except Exception as e:
-            logger.error(e)
-            logger.error(str(self))
+            logger.warning(f'Failed to like solution by user {self.user_id}: {str(e)}')
 
     def get_statistic_info(self):
-        like_from = 0
-        like_to = 1
-        return self.user_id, self.user_name, like_from, like_to
-
-    def __str__(self):
-        return (f'{self.user_name}, {self.user_id}\n'
-                f'likes: {self.n_likes}, dislikes: {self.n_dislikes}')
+        user_name = self.sol.find_element(By.CLASS_NAME, 'comment__user-name').text
+        return self.user_id, user_name, 0, 1 if self.voted else 0

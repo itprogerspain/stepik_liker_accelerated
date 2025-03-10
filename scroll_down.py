@@ -2,7 +2,7 @@ import logging
 from time import sleep
 import random
 from selenium.webdriver.common.by import By
-
+from selenium.common.exceptions import WebDriverException
 
 def scroll_down(browser, n: str, logger: logging.Logger, element_class: str = None):
     """
@@ -19,21 +19,28 @@ def scroll_down(browser, n: str, logger: logging.Logger, element_class: str = No
         n = 1000
 
     last_count = 0
-    max_attempts = 10  # Максимальное количество попыток прокрутки
+    max_attempts = 15  # Максимальное количество попыток прокрутки (оставляем 15, как у тебя)
     for i in range(max_attempts):
-        browser.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-        sleep(random.uniform(1, 3))  # Уменьшенная задержка для ускорения
-        # sleep(random.uniform(2, 5))
-        # sleep(random.uniform(0.5, 1.5))
-        # sleep(random.uniform(0.8, 2))
+        try:
+            browser.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            sleep(random.uniform(2, 5))  # Оставляем твою задержку для стабильности
 
-        if element_class:
-            elements = browser.find_elements(By.CLASS_NAME, element_class)
-            current_count = len(elements)
-            logger.debug(f"Loaded {current_count}/{n} elements after scroll {i + 1}")
-            if current_count >= n or current_count == last_count:  # Останавливаемся, если загружено достаточно или новых элементов нет
+            if element_class:
+                elements = browser.find_elements(By.CLASS_NAME, element_class)
+                current_count = len(elements)
+                logger.debug(f"Loaded {current_count}/{n} elements after scroll {i + 1}")
+                if current_count >= n or current_count == last_count:  # Останавливаемся, если загружено достаточно или новых элементов нет
+                    logger.info(f"Total elements loaded: {current_count} after {i + 1} attempts")
+                    break
+                last_count = current_count
+            else:
+                logger.debug(f"Scrolling attempt {i + 1} of {max_attempts}")
+
+        except WebDriverException as e:
+            logger.warning(f"Scroll failed on attempt {i + 1}/{max_attempts}: {str(e)}")
+            if i == max_attempts - 1:
+                logger.error(f"Failed to scroll after {max_attempts} attempts")
                 break
-            last_count = current_count
-        else:
-            logger.debug(f"Scrolling attempt {i + 1} of {max_attempts}")
+            sleep(random.uniform(2, 5))  # Задержка перед повторной попыткой
+
     return last_count if element_class else None

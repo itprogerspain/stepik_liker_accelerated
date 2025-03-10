@@ -1,60 +1,45 @@
-from collections import defaultdict
-from class_browser import MyBrowser
+from selenium.common import NoSuchElementException
 from time import sleep
+import random
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from class_browser import MyBrowser
 from class_logger import get_logger
-from scroll_down import scroll_down
 from class_like import Like
 from class_statistics import Statistics
-
-from selenium.common import NoSuchElementException
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.by import By
+from scroll_down import scroll_down
 
 logger = get_logger('process_likes')
 stat = Statistics()
 
-def process_likes(browser: MyBrowser):
-    """
-    Собирает лайки. Возвращает словарь вида
-                    {solutions_url: {'ids_list': [stepik_id1, ...], 'likes_list': [Like(), ...]}}
-    :param browser: экземпляр браузера
-    :return: dict[str: dict]
-    """
-    notifications_url = 'https://stepik.org/notifications?type=comments'
-    browser.get(notifications_url)
-    browser.waiter.until(EC.presence_of_element_located((By.CLASS_NAME, 'navbar__profile-toggler')))
-    sleep(2)
+def process_likes(browser: MyBrowser) -> dict[str, dict[str, list]]:
+    browser.get('https://stepik.org/notifications')
+    sleep(random.uniform(2, 4))
 
-    # Получаем количество событий
-    try:
-        n_events = browser.waiter.until(EC.presence_of_element_located((By.ID, 'profile-notifications-badge'))).text
-    except NoSuchElementException:
-        logger.warning('Нет лайков, или количество не прогрузилось')
-        n_events = '0'
+    raw_likes = browser.find_elements(By.CSS_SELECTOR, 'div[data-type="like"]')
+    n_likes = len(raw_likes)
+    if n_likes:
+        logger.debug(f'Общее количество лайков: {n_likes}')
+        scroll_down(browser, n_likes, logger, element_class='notification')
+    else:
+        logger.info('Нет лайков для обработки')
 
-    logger.info('Number of events: {}'.format(n_events))
-
-    # Динамический скроллинг
-    scroll_down(browser, n_events, logger, element_class='notifications__widget')
-    raw_likes_list = browser.find_elements(By.CLASS_NAME, 'notifications__widget')
-    logger.info('Total number of likes: {}'.format(len(raw_likes_list)))
-
-    likes_data_vals = lambda: {'ids_list': [], 'likes_list': []}
-    likes_data = defaultdict(likes_data_vals)
-
-    # Фильтрация, группировка лайков
+    raw_likes_list = browser.find_elements(By.CSS_SELECTOR, 'div[data-type="like"]')
+    likes_data = {}
     for i, raw_like in enumerate(raw_likes_list, 1):
         if not i % 10:
             logger.debug(f'processing raw_like {i} of {len(raw_likes_list)}')
         like = Like(raw_like)
         if like.is_good:
             solution_url, liker_id = like.get_info()
-            val = likes_data[solution_url]
+            val = likes_data.setdefault(solution_url, {'ids_list': [], 'likes_list': []})
             val['ids_list'].append(liker_id)
             val['likes_list'].append(like)
-            stat.set_stat(like)  # Статистика
+            stat.set_stat(like)
         else:
-            like.mark_read()  # Если не подходит для обработки - помечаем прочитанным
+            like.mark_read()
+            logger.warning(f'Skipped notification: {raw_like.text}')  # Логируем пропущенные уведомления
+
     stat.dump_data()
     return likes_data
 
