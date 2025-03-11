@@ -4,15 +4,17 @@ from process_likes import process_likes
 from process_solution import process_solution
 from class_browser import MyBrowser
 from time import sleep
+from class_statistics import Statistics
 
 logger = get_logger('liker_main')
+stat = Statistics()
 
 start_time = perf_counter()
 total_liked = total_already_liked = total_processed_solutions = 0
 
 with MyBrowser() as browser:
     likes_data = process_likes(browser)  # Собираем лайки
-    batch_size = 20  # Обрабатываем по 20 лайков за раз
+    batch_size = 10  # Уменьшаем до 10 лайков за раз
     solution_urls = []
     for i, (solution_url, like_data) in enumerate(likes_data.items(), 1):
         logger.warning(f'Process solution link {i} of {len(likes_data)}')
@@ -28,7 +30,11 @@ with MyBrowser() as browser:
                 else:
                     logger.warning(f'Skipping paid course: {url}')
             solution_urls = []
-            sleep(2)  # Пауза между пакетами
+            sleep(5)  # Увеличиваем паузу до 5 секунд
+
+    # Получаем статистику сессии
+    session_stats = stat.get_session_stats()
+    skipped_count = session_stats.get('skipped_likes', 0)
 
 end_time = perf_counter()
 running_time = end_time - start_time
@@ -39,4 +45,5 @@ spent_time = f'{h}:{m:02d}:{s:02d}'
 print()
 print(f'Новых лайков {total_liked}, ранее лайкнутых {total_already_liked}')
 print(f"Всего обработано: {len(likes_data)} ссылок и {total_processed_solutions} решений")
+print(f"Пропущено уведомлений: {skipped_count}")
 print(f'Running time {spent_time}')

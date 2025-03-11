@@ -1,4 +1,3 @@
-from selenium.common import NoSuchElementException
 from time import sleep
 import random
 from selenium.webdriver.common.by import By
@@ -17,7 +16,7 @@ stat = Statistics()
 def process_likes(browser: MyBrowser) -> dict[str, dict[str, list]]:
     browser.get('https://stepik.org/notifications')
 
-    # Ожидание загрузки хотя бы одного уведомления (увеличиваем таймаут до 30 секунд)
+    # Ожидание загрузки хотя бы одного уведомления
     try:
         WebDriverWait(browser, 30).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-type="like"]'))
@@ -26,19 +25,19 @@ def process_likes(browser: MyBrowser) -> dict[str, dict[str, list]]:
         logger.error(f"Failed to load notifications page: {str(e)}")
         return {}
 
-    # Дополнительная задержка после загрузки
     sleep(random.uniform(2, 4))
 
     raw_likes = browser.find_elements(By.CSS_SELECTOR, 'div[data-type="like"]')
     n_likes = len(raw_likes)
     if n_likes:
         logger.debug(f'Общее количество лайков: {n_likes}')
-        scroll_down(browser, n_likes, logger, element_class='notification')
+        scroll_down(browser, str(n_likes), logger, element_class='notification')
     else:
         logger.info('Нет лайков для обработки')
 
     raw_likes_list = browser.find_elements(By.CSS_SELECTOR, 'div[data-type="like"]')
     likes_data = {}
+    skipped_likes = []  # Список пропущенных лайков для детального логирования
     for i, raw_like in enumerate(raw_likes_list, 1):
         if not i % 10:
             logger.debug(f'processing raw_like {i} of {len(raw_likes_list)}')
@@ -52,7 +51,19 @@ def process_likes(browser: MyBrowser) -> dict[str, dict[str, list]]:
         else:
             like.mark_read()
             stat.mark_skipped()
-            logger.warning(f'Skipped notification: {raw_like.text}')
+            skipped_likes.append({
+                'solution_url': like.solution_url,
+                'liker_id': like.liker_id,
+                'text': raw_like.text if hasattr(raw_like, 'text') else 'No text'
+            })
+            logger.warning(f'Skipped notification: URL={like.solution_url}, ID={like.liker_id}, Text={raw_like.text}')
+
+    # Детальное логирование пропущенных лайков
+    if skipped_likes:
+        logger.info(f"Total skipped notifications: {len(skipped_likes)}")
+        for i, skipped in enumerate(skipped_likes, 1):
+            logger.info(
+                f"Skipped {i}/{len(skipped_likes)}: URL={skipped['solution_url']}, ID={skipped['liker_id']}, Text={skipped['text']}")
 
     stat.dump_data()
     return likes_data

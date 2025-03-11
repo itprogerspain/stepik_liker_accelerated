@@ -1,4 +1,3 @@
-from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.common.by import By
 from time import sleep
 import random
@@ -16,7 +15,9 @@ class Like:
             self.liker_id = self.raw_like.find_element(By.CSS_SELECTOR, 'a[data-author-id]').get_attribute('data-author-id')
             self.is_good = True
         except Exception as e:
-            logger.warning(f"Failed to parse like: {str(e)}")
+            logger.warning(f"Failed to parse like (URL: {self.solution_url if 'solution_url' in vars(self) else 'N/A'}, ID: {self.liker_id if 'liker_id' in vars(self) else 'N/A'}): {str(e)}")
+            self.solution_url = getattr(self, 'solution_url', 'N/A')
+            self.liker_id = getattr(self, 'liker_id', 'N/A')
 
     def get_info(self):
         return self.solution_url, self.liker_id
@@ -25,7 +26,7 @@ class Like:
         try:
             self.raw_like.find_element(By.CLASS_NAME, 'notification__icon--read').click()
         except Exception as e:
-            logger.warning(f"Failed to mark as read: {str(e)}")
+            logger.warning(f"Failed to mark as read (URL: {self.solution_url}, ID: {self.liker_id}): {str(e)}")
 
     def like(self):
         try:
@@ -35,8 +36,7 @@ class Like:
                 sleep(random.uniform(1, 3))  # Задержка после лайка
                 logger.debug(f'Liked: {self.get_info()}')
         except Exception as e:
-            logger.warning(f'Failed to like: {str(e)}')
+            logger.warning(f'Failed to like (URL: {self.solution_url}, ID: {self.liker_id}): {str(e)}')
 
     def __repr__(self):
         return f'Like(solution_url={self.solution_url}, liker_id={self.liker_id})'
-
