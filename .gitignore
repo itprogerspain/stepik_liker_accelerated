@@ -4,10 +4,11 @@ __pycache__/
 *$py.class
 
 drivers/
+logs/
 
 like_stats.json
 like_stats_backup.json
-
+skipped_likes.json
 
 # C extensions
 *.so
