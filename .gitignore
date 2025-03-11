@@ -8,6 +8,7 @@ logs/
 
 like_stats.json
 like_stats_backup.json
+skipped_solutions.json
 
 
 # C extensions
