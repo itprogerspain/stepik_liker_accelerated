@@ -1,3 +1,5 @@
+# Файл: class_statistics.py
+# Описание: Добавлены счётчики сессии и метод get_session_stats
 from class_logger import get_logger
 import json
 from pathlib import Path
@@ -17,6 +19,11 @@ class Statistics:
     def __init__(self, stat_file_name='like_stats.json'):
         self.stat_file_name = stat_file_name
         self.stat_data = {}
+        # Инициализация счётчиков сессии
+        self.liked = 0
+        self.skipped = 0
+        self.already_liked = 0
+        self.processed_solutions = 0
         self.__load_data()
 
     def __load_data(self):
@@ -44,6 +51,27 @@ class Statistics:
         data['likes_from'] += like_from
         data['likes_to'] += like_to
         self.stat_data[user_id] = data
+        # Обновляем счётчики сессии
+        if isinstance(item, Like):
+            self.liked += like_from
+
+    def mark_skipped(self):
+        self.skipped += 1
+
+    def mark_already_liked(self):
+        self.already_liked += 1
+
+    def add_processed_solutions(self, n):
+        self.processed_solutions += n
+
+    def get_session_stats(self):
+        """Возвращает статистику текущей сессии"""
+        return {
+            "liked": self.liked,
+            "skipped": self.skipped,
+            "already_liked": self.already_liked,
+            "processed_solutions": self.processed_solutions
+        }
 
 if __name__ == '__main__':
     ...
