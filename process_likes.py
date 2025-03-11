@@ -3,6 +3,7 @@ from time import sleep
 import random
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
 from class_browser import MyBrowser
 from class_logger import get_logger
 from class_like import Like
@@ -12,8 +13,20 @@ from scroll_down import scroll_down
 logger = get_logger('process_likes')
 stat = Statistics()
 
+
 def process_likes(browser: MyBrowser) -> dict[str, dict[str, list]]:
     browser.get('https://stepik.org/notifications')
+
+    # Ожидание загрузки хотя бы одного уведомления (увеличиваем таймаут до 30 секунд)
+    try:
+        WebDriverWait(browser, 30).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-type="like"]'))
+        )
+    except Exception as e:
+        logger.error(f"Failed to load notifications page: {str(e)}")
+        return {}
+
+    # Дополнительная задержка после загрузки
     sleep(random.uniform(2, 4))
 
     raw_likes = browser.find_elements(By.CSS_SELECTOR, 'div[data-type="like"]')
@@ -38,13 +51,8 @@ def process_likes(browser: MyBrowser) -> dict[str, dict[str, list]]:
             stat.set_stat(like)
         else:
             like.mark_read()
-            logger.warning(f'Skipped notification: {raw_like.text}')  # Логируем пропущенные уведомления
+            stat.mark_skipped()
+            logger.warning(f'Skipped notification: {raw_like.text}')
 
     stat.dump_data()
     return likes_data
-
-if __name__ == '__main__':
-    browser = MyBrowser()
-    likes_data = process_likes(browser)
-    print(f'len = {len(likes_data)}')
-
