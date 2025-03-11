@@ -1,5 +1,7 @@
 from time import sleep
 import random
+import json
+from pathlib import Path
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
@@ -16,7 +18,6 @@ stat = Statistics()
 def process_likes(browser: MyBrowser) -> dict[str, dict[str, list]]:
     browser.get('https://stepik.org/notifications')
 
-    # Ожидание загрузки хотя бы одного уведомления
     try:
         WebDriverWait(browser, 30).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-type="like"]'))
@@ -37,7 +38,7 @@ def process_likes(browser: MyBrowser) -> dict[str, dict[str, list]]:
 
     raw_likes_list = browser.find_elements(By.CSS_SELECTOR, 'div[data-type="like"]')
     likes_data = {}
-    skipped_likes = []  # Список пропущенных лайков для детального логирования
+    skipped_likes = []
     for i, raw_like in enumerate(raw_likes_list, 1):
         if not i % 10:
             logger.debug(f'processing raw_like {i} of {len(raw_likes_list)}')
@@ -54,16 +55,28 @@ def process_likes(browser: MyBrowser) -> dict[str, dict[str, list]]:
             skipped_likes.append({
                 'solution_url': like.solution_url,
                 'liker_id': like.liker_id,
+                'liker_name': like.liker_name,
                 'text': raw_like.text if hasattr(raw_like, 'text') else 'No text'
             })
-            logger.warning(f'Skipped notification: URL={like.solution_url}, ID={like.liker_id}, Text={raw_like.text}')
+            logger.warning(
+                f'Skipped notification: URL={like.solution_url}, ID={like.liker_id}, Name={like.liker_name}, Text={raw_like.text}')
 
-    # Детальное логирование пропущенных лайков
     if skipped_likes:
         logger.info(f"Total skipped notifications: {len(skipped_likes)}")
         for i, skipped in enumerate(skipped_likes, 1):
             logger.info(
-                f"Skipped {i}/{len(skipped_likes)}: URL={skipped['solution_url']}, ID={skipped['liker_id']}, Text={skipped['text']}")
+                f"Skipped {i}/{len(skipped_likes)}: URL={skipped['solution_url']}, ID={skipped['liker_id']}, Name={skipped['liker_name']}, Text={skipped['text']}")
+
+        # Сохраняем пропущенные лайки в JSON с перезаписью
+        log_dir = Path("logs")
+        log_dir.mkdir(exist_ok=True)
+        skipped_log_file = log_dir / "skipped_likes.json"
+        try:
+            with open(skipped_log_file, 'w', encoding='utf-8') as f:
+                json.dump(skipped_likes, f, ensure_ascii=False, indent=4)
+            logger.info(f"Saved skipped notifications to {skipped_log_file}")
+        except Exception as e:
+            logger.error(f"Failed to save skipped notifications to {skipped_log_file}: {str(e)}")
 
     stat.dump_data()
     return likes_data

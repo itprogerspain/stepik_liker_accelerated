@@ -1,22 +1,43 @@
-import sys
 import logging
-from config import log_level
+import sys
+from pathlib import Path
 
+def get_logger(name: str, level: str = 'WARNING') -> logging.Logger:
+    # Определение уровней логирования
+    levels = {
+        'DEBUG': logging.DEBUG,
+        'INFO': logging.INFO,
+        'WARNING': logging.WARNING,
+        'ERROR': logging.ERROR,
+        'CRITICAL': logging.CRITICAL
+    }
 
-def get_logger(name: str, level: str=log_level) -> logging.Logger:
-    levels = {'DEBUG': logging.DEBUG, 'INFO': logging.INFO, 'WARNING': logging.WARNING,
-              'ERROR': logging.ERROR, 'CRITICAL': logging.CRITICAL}
-    log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    log_format = f"%(asctime)s - [%(levelname)s] - %(name)s - (%(filename)s).%(funcName)s(%(lineno)d) - %(message)s"
-    log_format = f"%(asctime)s - [%(levelname)s] - (%(filename)s).%(funcName)s(%(lineno)d) - %(message)s"
+    # Формат логов (с добавлением имени логгера)
+    log_format = '%(asctime)s - [%(levelname)s] - %(name)s - (%(filename)s).%(funcName)s(%(lineno)d) - %(message)s'
+
+    # Настройка логгера
     logger = logging.getLogger(name)
     logger.setLevel(levels.get(level.upper(), logging.WARNING))
-    logger_handler = logging.StreamHandler(sys.stdout)
-    logger_formatter = logging.Formatter(log_format, datefmt='%H:%M:%S')
-    logger_handler.setFormatter(logger_formatter)
-    logger.addHandler(logger_handler)
-    return logger
 
+    # Проверяем, чтобы не дублировать обработчики
+    if not logger.handlers:
+        # Обработчик для консоли
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_formatter = logging.Formatter(log_format, datefmt='%H:%M:%S')
+        console_handler.setFormatter(console_formatter)
+        logger.addHandler(console_handler)
+
+        # Создаём директорию logs
+        log_dir = Path("logs")
+        log_dir.mkdir(exist_ok=True)
+
+        # Обработчик для файла
+        file_handler = logging.FileHandler(log_dir / f"{name}.log")
+        file_formatter = logging.Formatter(log_format, datefmt='%Y-%m-%d %H:%M:%S')
+        file_handler.setFormatter(file_formatter)
+        logger.addHandler(file_handler)
+
+    return logger
 
 if __name__ == '__main__':
     logger = get_logger('test', level='DEBUG')
