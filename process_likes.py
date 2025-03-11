@@ -1,3 +1,5 @@
+# Файл: process_likes.py
+# Описание: Увеличено время ожидания до 60 секунд и добавлены повторные попытки
 from time import sleep
 import random
 import json
@@ -18,13 +20,20 @@ stat = Statistics()
 def process_likes(browser: MyBrowser) -> dict[str, dict[str, list]]:
     browser.get('https://stepik.org/notifications')
 
-    try:
-        WebDriverWait(browser, 30).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-type="like"]'))
-        )
-    except Exception as e:
-        logger.error(f"Failed to load notifications page: {str(e)}")
-        return {}
+    # Ожидание загрузки с повторными попытками
+    max_attempts = 3
+    for attempt in range(max_attempts):
+        try:
+            WebDriverWait(browser, 60).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-type="like"]'))
+            )
+            break
+        except Exception as e:
+            logger.warning(f"Attempt {attempt + 1}/{max_attempts} failed: {str(e)}")
+            if attempt == max_attempts - 1:
+                logger.error("Failed to load notifications page after all attempts")
+                return {}
+            sleep(5)
 
     sleep(random.uniform(2, 4))
 
@@ -67,7 +76,6 @@ def process_likes(browser: MyBrowser) -> dict[str, dict[str, list]]:
             logger.info(
                 f"Skipped {i}/{len(skipped_likes)}: URL={skipped['solution_url']}, ID={skipped['liker_id']}, Name={skipped['liker_name']}, Text={skipped['text']}")
 
-        # Сохраняем пропущенные лайки в JSON с перезаписью
         log_dir = Path("logs")
         log_dir.mkdir(exist_ok=True)
         skipped_log_file = log_dir / "skipped_likes.json"
