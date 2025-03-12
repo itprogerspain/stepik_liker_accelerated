@@ -1,5 +1,5 @@
 # Файл: process_likes.py
-# Описание: Добавлено логирование пропущенных уведомлений
+# Описание: Добавлена поддержка лайков комментариев
 from collections import defaultdict
 from class_browser import MyBrowser
 from time import sleep
@@ -47,33 +47,46 @@ def process_likes(browser: MyBrowser):
     n_notifications_after_scroll = len(all_notifications)
     logger.debug(f'Number of notifications after scroll: {n_notifications_after_scroll}')
 
-    # Фильтруем лайки
-    raw_likes_list = [notif for notif in all_notifications if 'data-action="liked"' in notif.get_attribute('outerHTML')]
+    # Фильтруем лайки (решений и комментариев)
+    raw_likes_list = []
+    skipped_notifications = []
+    for raw_notification in all_notifications:
+        notification_text = raw_notification.text.encode("utf-8", errors="replace").decode("utf-8")
+        if ('data-action="liked"' in raw_notification.get_attribute('outerHTML') or
+                "оценил(а) ваше решение" in notification_text or
+                "оценил(а) ваш комментарий к решению" in notification_text):
+            raw_likes_list.append(raw_notification)
+        else:
+            skipped_notifications.append({
+                'text': notification_text,
+                'reason': 'Not a like notification (e.g., advertisement or other type)',
+                'timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            })
+            logger.warning(f'Skipped non-like notification: Text={notification_text}')
+
     n_likes = len(raw_likes_list)
     logger.info(f'Total number of like notifications: {n_likes}')
 
     likes_data_vals = lambda: {'ids_list': [], 'likes_list': []}
     likes_data = defaultdict(likes_data_vals)
 
-    skipped_notifications = []  # Список пропущенных уведомлений
-
-    for i, raw_notification in enumerate(all_notifications, 1):
+    for i, raw_notification in enumerate(raw_likes_list, 1):
         if not i % 10:
-            logger.debug(f'Processing notification {i} of {n_notifications_after_scroll}')
+            logger.debug(f'Processing like notification {i} of {n_likes}')
 
-        # Проверяем, является ли уведомление лайком
-        if 'data-action="liked"' not in raw_notification.get_attribute('outerHTML'):
-            skipped_notifications.append({
-                'text': raw_notification.text,
-                'reason': 'Not a like notification (e.g., advertisement or other type)',
-                'timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            })
-            logger.warning(f'Skipped non-like notification: Text={raw_notification.text}')
-            continue
-
+        notification_text = raw_notification.text.encode("utf-8", errors="replace").decode("utf-8")
         like = Like(raw_notification)
         if like.is_good:
             solution_url, liker_id = like.get_info()
+            if "оценил(а) ваш комментарий к решению" in notification_text:
+                # Обработка лайка комментария
+                logger.info(f'Processing comment like from {like.user_name} (ID: {liker_id}) for URL: {solution_url}')
+                # Здесь можно добавить логику для прокрутки к комментарию на странице решения
+                stat.increment_comment_likes()
+            else:
+                # Обработка лайка решения
+                logger.info(f'Processing solution like from {like.user_name} (ID: {liker_id}) for URL: {solution_url}')
+                stat.increment_solution_likes()
             val = likes_data[solution_url]
             val['ids_list'].append(liker_id)
             val['likes_list'].append(like)
@@ -84,12 +97,12 @@ def process_likes(browser: MyBrowser):
                 'solution_url': like.what_was_liked_url,
                 'liker_id': like.user_id,
                 'liker_name': like.user_name,
-                'text': raw_notification.text,
+                'text': notification_text,
                 'reason': 'Like notification without a published solution or other issue',
                 'timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             })
             logger.warning(
-                f'Skipped like notification: URL={like.what_was_liked_url}, ID={like.user_id}, Name={like.user_name}, Text={raw_notification.text}')
+                f'Skipped like notification: URL={like.what_was_liked_url}, ID={like.user_id}, Name={like.user_name}, Text={notification_text}')
 
     # Сохраняем пропущенные уведомления
     if skipped_notifications:
@@ -104,6 +117,7 @@ def process_likes(browser: MyBrowser):
         except Exception as e:
             logger.error(f"Failed to save skipped notifications to {skipped_log_file}: {str(e)}")
 
+    # Сохраняем статистику
     stat.dump_data()
     return likes_data
 

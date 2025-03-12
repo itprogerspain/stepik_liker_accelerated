@@ -1,71 +1,74 @@
+# Файл: class_like.py
+# Описание: Улучшена обработка URL для комментариев
 from selenium.webdriver.remote.webelement import WebElement
-from selenium.webdriver.common.by import By
-
 from class_logger import get_logger
+from time import sleep
+import random
 
 logger = get_logger('class_like')
 
 class Like:
-    sol_sufx = '?thread=solutions'
+    def __init__(self, raw_notification: WebElement):
+        self.raw_notification = raw_notification
+        self.notification_text = raw_notification.text.encode("utf-8", errors="replace").decode("utf-8")
+        self.user_name = self._extract_user_name()
+        self.user_id = self._extract_user_id()
+        self.what_was_liked_url = self._extract_solution_or_comment_url()
+        self.like = None
+        self.is_good = self._check_is_good()
 
-    def __init__(self, like: WebElement):
-        self.like = like
-        self.is_comment = like.get_attribute('data-action') == 'replied'
-        like_from = like.find_element(By.CLASS_NAME, 'notification__title').find_element(By.TAG_NAME, 'a')
-        self.like_info = like.find_element(By.CLASS_NAME, 'notification__title-action').text
-        self.user_name = like_from.text     # имя лайкнувшего
-        *_, self.user_id, _ = like_from.get_attribute('href').split('/')   # stepik-id лайкнувшего
-        _, what_was_liked = like.find_element(By.CLASS_NAME, 'notification__context-content').find_elements(By.TAG_NAME, 'a')
-        self.what_was_liked_name = what_was_liked.text
-        self.what_was_liked_url = what_was_liked.get_attribute('href')
-        self.__mark_read_btn = like.find_element(By.CLASS_NAME, 'notification__icon-action')
+    def _extract_user_name(self):
+        if "оценил(а) ваше решение" in self.notification_text:
+            return self.notification_text.split("оценил(а) ваше решение")[0].strip()
+        elif "оценил(а) ваш комментарий к решению" in self.notification_text:
+            return self.notification_text.split("оценил(а) ваш комментарий к решению")[0].strip()
+        return None
 
+    def _extract_user_id(self):
+        try:
+            user_link = self.raw_notification.find_element(By.CLASS_NAME, 'notifications__user-name')
+            return user_link.get_attribute('href').split('/')[-1].strip()
+        except:
+            return None
 
-    def mark_read(self) -> None:
-        """
-        Если лайк, а не коммент (который надо бы прочитать самому) -
-        смело помечаем прочитанным
-        """
-        if not self.is_comment:
-            try:
-                self.__mark_read_btn.click()
-            except Exception as e:
-                logger.error("Like mark read failed")
-                logger.error(str(self))
-                logger.error(e)
+    def _extract_solution_or_comment_url(self):
+        try:
+            link = self.raw_notification.find_element(By.TAG_NAME, 'a')
+            url = link.get_attribute('href')
+            # Если это комментарий, нужно извлечь URL родительского решения
+            if "оценил(а) ваш комментарий к решению" in self.notification_text:
+                # Здесь можно парсить URL для перехода к решению (например, убрать часть комментария)
+                # Пока предполагаем, что URL ведёт к странице решения
+                return url
+            return url
+        except:
+            return None
 
+    def _check_is_good(self):
+        return self.what_was_liked_url is not None and self.user_id is not None
 
-    def get_info(self) -> tuple[str, str]:
-        """получаем url того, что было лайкнуто и id лайкнувшего"""
-        solution_url = self.what_was_liked_url + self.sol_sufx
-        return solution_url, self.user_id
+    def get_info(self):
+        return self.what_was_liked_url, self.user_id
 
-    def get_statistic_info(self) -> tuple[str, str, int, int]:
-        like_from = 1
-        like_to = 0
-        return self.user_id, self.user_name, like_from, like_to
-
-    @property
-    def is_good(self) -> bool:
-        """ Если это решение, а не комментарий, и его лайкнули, а не прокомментировали
-        - объект подходит для обработки """
-        sol_text = self.like.find_element(By.CLASS_NAME, 'show-more__content').text
-        return 'Решение' in sol_text and not self.is_comment
-
-
-    def __str__(self):
-        like_name = f'liker_name: {self.user_name}'
-        liker_id = f'liker_id: {self.user_id}'
-        what_was_liked_name = f'what_was_liked_name: {self.what_was_liked_name}'
-        what_was_liked_url = f'what_was_liked_url: {self.what_was_liked_url}'
-        comment_or_like = f'comment_or_like: {"comment" if self.is_comment else "like"}'
-        on_work = f'take_to_work: {self.is_good}'
-        return (f'{on_work}, {comment_or_like}\n'
-                f'{like_name}, {liker_id}\n'
-                f'{self.like_info}\n'
-                f'{what_was_liked_name}\n'
-                f'{what_was_liked_url}')
+    def mark_read(self):
+        try:
+            self.raw_notification.click()
+            sleep(random.uniform(1, 2))
+            logger.debug(f'Marked as read: {self.user_name} ({self.user_id})')
+        except Exception as e:
+            logger.error(f'Failed to mark as read for {self.user_name} ({self.user_id}): {str(e)}')
 
     def __repr__(self):
-        return f'{self.__class__.__name__}({self.get_info()})'
+        return f'Like(user={self.user_name}, id={self.user_id}, url={self.what_was_liked_url})'
+
+if __name__ == '__main__':
+    from class_browser import MyBrowser
+    browser = MyBrowser()
+    browser.get('https://stepik.org/notifications?type=comments')
+    sleep(2)
+    notifications = browser.find_elements(By.CLASS_NAME, 'notifications__widget')
+    if notifications:
+        like = Like(notifications[0])
+        print(like)
+        print(like.get_info())
 
