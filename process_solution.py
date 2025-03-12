@@ -52,7 +52,7 @@ def process_solution(browser: MyBrowser, solution_url: str, ids_list: list[str] 
     for i, raw_sol in enumerate(raw_solutions, 1):
         if not i % 20:
             logger.debug(f'Обработка решения {i} из {len(raw_solutions)}')
-        solution = Solution(raw_sol)
+        solution = Solution(raw_sol, STEPIK_SELF_ID)  # Передаём STEPIK_SELF_ID
         if solution.user_id == STEPIK_SELF_ID:  # если собственное решение - пропускаем
             logger.info(f"Skipping own solution by {solution.user_name} (ID: {solution.user_id})")
             stat.set_stat(solution)

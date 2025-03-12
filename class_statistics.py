@@ -67,8 +67,8 @@ class Statistics:
             self.skipped_solutions.append({
                 'user_id': item.user_id,
                 'user_name': item.user_name,
-                'url': item.sol.get_attribute('href'),
-                'reason': 'Own solution or already voted'
+                'url': item.sol.get_attribute('href') if hasattr(item, 'sol') else 'N/A',
+                'reason': 'Own solution' if item.user_id == item.STEPIK_SELF_ID else 'Already voted'
             })
         else:
             data = self.stat_data.get(user_id, {'names': [], 'likes_from': 0, 'likes_to': 0})

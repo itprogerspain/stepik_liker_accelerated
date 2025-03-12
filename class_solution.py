@@ -6,8 +6,9 @@ from selenium.webdriver.common.by import By
 logger = get_logger('class_solution')
 
 class Solution:
-    def __init__(self, sol: WebElement):
+    def __init__(self, sol: WebElement, STEPIK_SELF_ID: str):
         self.sol = sol
+        self.STEPIK_SELF_ID = STEPIK_SELF_ID  # Добавляем STEPIK_SELF_ID
         user = sol.find_element(By.CLASS_NAME, 'comments-user-badge__name')
         self.user_name = user.text
         self.user_id = user.get_attribute('href').split('/')[-1].strip()
@@ -20,8 +21,7 @@ class Solution:
         try:
             self.like_btn.click()
         except Exception as e:
-            logger.error(e)
-            logger.error(str(self))
+            logger.error(f"Failed to like solution by {self.user_name} (ID: {self.user_id}): {str(e)}")
 
     def get_statistic_info(self):
         like_from = 0
