@@ -1,5 +1,5 @@
 # Файл: process_solution.py
-# Описание: Добавлена задержка перед закрытием вкладки и логирование скипов
+# Описание: Передаём Statistics в Solution для избежания циклического импорта
 from selenium.common import TimeoutException
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
@@ -46,7 +46,7 @@ def process_solution(browser: MyBrowser, solution_url: str, ids_list: list[str] 
     for i, raw_sol in enumerate(raw_solutions, 1):
         if not i % 20:
             logger.debug(f'Обработка решения {i} из {len(raw_solutions)}')
-        solution = Solution(raw_sol)
+        solution = Solution(raw_sol, stat=stat)  # Передаём stat в конструктор
         if solution.user_id == STEPIK_SELF_ID:
             solution.skip('Own solution')
             continue
@@ -68,7 +68,7 @@ def process_solution(browser: MyBrowser, solution_url: str, ids_list: list[str] 
     logger.info(f'{page_title} ({solution_url}). Всего решений {solution_count}')
     logger.info(f'новых лайков: {liked}, старых лайков: {already_liked}')
 
-    sleep(random.uniform(1, 2))  # Задержка перед закрытием вкладки
+    sleep(random.uniform(1, 2))
     browser.switch_to.window(browser.window_handles[0])
 
     for like in likes_list:
