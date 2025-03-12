@@ -20,7 +20,7 @@ with MyBrowser() as browser:
         if i % batch_size == 0 or i == len(likes_data):
             for url, like_data in solution_urls:
                 if "Sign Up" not in browser.title and "Pay" not in browser.title:
-                    liked, already_liked, n_solutions = process_solution(browser, url, *like_data.values())
+                    liked, already_liked, n_solutions = process_solution(browser, url, *like_data.values(), total_notifications=len(likes_data))
                     total_liked += liked
                     total_already_liked += already_liked
                     total_processed_solutions += n_solutions

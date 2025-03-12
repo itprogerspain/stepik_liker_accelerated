@@ -33,6 +33,7 @@ def process_likes(browser: MyBrowser):
         n_events = '0'
 
     logger.info(f'Number of events: {n_events}')
+    total_notifications = int(n_events) if n_events.isdigit() else 0
 
     # Динамический скроллинг
     scroll_down(browser, n_events, logger, element_class='notifications__widget')
@@ -52,9 +53,9 @@ def process_likes(browser: MyBrowser):
             val = likes_data[solution_url]
             val['ids_list'].append(liker_id)
             val['likes_list'].append(like)
-            stat.set_stat(like)
+            stat.set_stat(like, total_notifications)
         else:
-            stat.set_stat(like)  # Логируем скипы
+            stat.set_stat(like, total_notifications)
     stat.dump_data()
     return likes_data
 

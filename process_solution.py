@@ -16,12 +16,13 @@ logger = get_logger('process_solution')
 stat = Statistics()
 
 def process_solution(browser: MyBrowser, solution_url: str, ids_list: list[str] | None = None,
-                     likes_list: list[Like] | None = None) -> tuple[int, int, int]:
+                     likes_list: list[Like] | None = None, total_notifications: int = None) -> tuple[int, int, int]:
     """
     :param browser: браузер
     :param solution_url: адрес страницы с решениями, которые нужно полайкать
     :param ids_list: опционально. список stepik_id для ответных лайков
     :param likes_list: опционально. Список лайков для пометки прочитанными
+    :param total_notifications: общее количество уведомлений в сессии
     :return: (количество новых лайков, количество уже лайкнутых, общее количество решений)
     """
     ids_list = ids_list or []
@@ -52,22 +53,20 @@ def process_solution(browser: MyBrowser, solution_url: str, ids_list: list[str] 
     for i, raw_sol in enumerate(raw_solutions, 1):
         if not i % 20:
             logger.debug(f'Обработка решения {i} из {len(raw_solutions)}')
-        solution = Solution(raw_sol, STEPIK_SELF_ID)  # Передаём STEPIK_SELF_ID
-        if solution.user_id == STEPIK_SELF_ID:  # если собственное решение - пропускаем
-            logger.info(f"Skipping own solution by {solution.user_name} (ID: {solution.user_id})")
-            stat.set_stat(solution)
+        solution = Solution(raw_sol, STEPIK_SELF_ID)
+        if solution.user_id == STEPIK_SELF_ID:  # если собственное решение - пропускаем без логирования в skipped_solutions
             continue
         elif solution.voted:  # если уже лайкали - пропускаем
             logger.info(f"Skipping already liked solution by {solution.user_name} (ID: {solution.user_id})")
             already_liked += 1
-            stat.set_stat(solution)
+            stat.set_stat(solution, total_notifications)
         elif solution.user_id in friends_data or solution.user_id in ids_list:
             liked += 1
             browser.execute_script("arguments[0].scrollIntoView(true);", solution.sol)
             solution.like()
             sleep(random.uniform(1, 3))  # Задержка после лайка
 
-        stat.set_stat(solution)  # Статистика
+        stat.set_stat(solution, total_notifications)  # Статистика
 
     stat.dump_data()
 
