@@ -1,9 +1,14 @@
+# Файл: class_solution.py
+# Описание: Добавлена задержка после лайка и метод skip
+from time import sleep
+import random
 from class_logger import get_logger
-
+from class_statistics import Statistics
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.common.by import By
 
 logger = get_logger('class_solution')
+stat = Statistics()
 
 class Solution:
     def __init__(self, sol: WebElement):
@@ -19,8 +24,10 @@ class Solution:
     def like(self):
         try:
             self.like_btn.click()
+            sleep(random.uniform(1, 3))  # Задержка 1-3 секунды после лайка
+            logger.debug(f'Liked solution by {self.user_name} (ID: {self.user_id})')
         except Exception as e:
-            logger.error(e)
+            logger.error(f'Failed to like solution (ID: {self.user_id}, Name: {self.user_name}): {str(e)}')
             logger.error(str(self))
 
     def get_statistic_info(self):
@@ -31,3 +38,7 @@ class Solution:
     def __str__(self):
         return (f'{self.user_name}, {self.user_id}\n'
                 f'likes: {self.n_likes}, dislikes: {self.n_dislikes}')
+
+    def skip(self, reason: str):
+        solution_url = self.sol.find_element(By.TAG_NAME, 'a').get_attribute('href') if self.sol.find_elements(By.TAG_NAME, 'a') else 'N/A'
+        stat.mark_skipped_solution(solution_url, self.user_id, self.user_name, reason)
