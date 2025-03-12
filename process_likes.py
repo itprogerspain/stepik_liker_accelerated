@@ -1,5 +1,5 @@
 # Файл: process_likes.py
-# Описание: Исключены собственные решения из skipped_solutions
+# Описание: Исправлен и восстановлен автоматический логин с улучшенной обработкой
 from collections import defaultdict
 from class_browser import MyBrowser
 from time import sleep
@@ -11,19 +11,78 @@ import json
 from pathlib import Path
 import datetime
 
-from selenium.common import NoSuchElementException
+from selenium.common import NoSuchElementException, TimeoutException
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
+from config import EMAIL, PASSWORD  # Импортируем учётные данные
 
 logger = get_logger('process_likes')
 stat = Statistics()
 
 
 def process_likes(browser: MyBrowser):
+    # Проверяем, авторизован ли пользователь
+    browser.get('https://stepik.org')
+    sleep(2)  # Даём странице загрузиться
+
+    try:
+        # Ждём кнопку "Войти" (ожидание до 10 секунд)
+        login_button = browser.waiter.until(EC.element_to_be_clickable((By.LINK_TEXT, 'Войти')))
+        logger.info("User not logged in, attempting to log in")
+
+        # Переходим на страницу логина
+        login_button.click()
+        sleep(2)
+
+        # Ждём поля логина и пароля
+        try:
+            # Обновлённые селекторы для полей логина и пароля
+            email_field = browser.waiter.until(EC.presence_of_element_located((By.ID, 'id_login_email')))
+            password_field = browser.waiter.until(EC.presence_of_element_located((By.ID, 'id_login_password')))
+            submit_button = browser.waiter.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.sign-form__btn')))
+
+            # Вводим логин и пароль
+            email_field.clear()  # Очищаем поле перед вводом
+            email_field.send_keys(EMAIL)
+            password_field.clear()  # Очищаем поле перед вводом
+            password_field.send_keys(PASSWORD)
+            submit_button.click()
+            sleep(3)  # Ждём, пока логин завершится
+
+            # Проверяем, что логин успешен
+            browser.get('https://stepik.org')
+            sleep(2)
+            if "Войти" in browser.driver.page_source:
+                raise Exception("Login failed, please check your credentials in config.py")
+            logger.info("Successfully logged in")
+        except TimeoutException as e:
+            logger.error(f"Failed to find login form elements: {str(e)}")
+            with open('debug_login_page.html', 'w', encoding='utf-8') as f:
+                f.write(browser.driver.page_source)
+            logger.info("Saved login page source to debug_login_page.html for inspection")
+            raise
+    except TimeoutException:
+        logger.info("User already logged in or login button not found")
+
+    # Переходим на страницу уведомлений
     notifications_url = 'https://stepik.org/notifications?type=comments'
     browser.get(notifications_url)
-    browser.waiter.until(EC.presence_of_element_located((By.CLASS_NAME, 'navbar__profile-toggler')))
-    sleep(2)
+    try:
+        browser.waiter.until(EC.presence_of_element_located((By.CLASS_NAME, 'navbar__profile-toggler')))
+        sleep(2)
+    except TimeoutException as e:
+        logger.error(f"Failed to load notifications page: {str(e)}")
+        # Проверяем, что на странице
+        if "Войти" in browser.driver.page_source:
+            logger.error("Redirected to login page, login might have failed")
+        elif "503" in browser.driver.page_source:
+            logger.error("Stepik returned 503 Service Unavailable")
+        else:
+            logger.error("Unknown issue, page source might have changed")
+            with open('debug_page.html', 'w', encoding='utf-8') as f:
+                f.write(browser.driver.page_source)
+            logger.info("Saved page source to debug_page.html for inspection")
+        raise
 
     # Получаем ID текущего пользователя
     current_user_id = browser.get_current_user_id()
