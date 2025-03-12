@@ -1,5 +1,5 @@
 # Файл: process_likes.py
-# Описание: Добавлена поддержка лайков комментариев
+# Описание: Исключены собственные решения из skipped_solutions
 from collections import defaultdict
 from class_browser import MyBrowser
 from time import sleep
@@ -24,6 +24,12 @@ def process_likes(browser: MyBrowser):
     browser.get(notifications_url)
     browser.waiter.until(EC.presence_of_element_located((By.CLASS_NAME, 'navbar__profile-toggler')))
     sleep(2)
+
+    # Получаем ID текущего пользователя
+    current_user_id = browser.get_current_user_id()
+    if not current_user_id:
+        logger.error("Could not determine current user ID, skipping ownership check")
+        current_user_id = None
 
     try:
         n_events = browser.waiter.until(EC.presence_of_element_located((By.ID, 'profile-notifications-badge'))).text
@@ -79,12 +85,9 @@ def process_likes(browser: MyBrowser):
         if like.is_good:
             solution_url, liker_id = like.get_info()
             if "оценил(а) ваш комментарий к решению" in notification_text:
-                # Обработка лайка комментария
                 logger.info(f'Processing comment like from {like.user_name} (ID: {liker_id}) for URL: {solution_url}')
-                # Здесь можно добавить логику для прокрутки к комментарию на странице решения
                 stat.increment_comment_likes()
             else:
-                # Обработка лайка решения
                 logger.info(f'Processing solution like from {like.user_name} (ID: {liker_id}) for URL: {solution_url}')
                 stat.increment_solution_likes()
             val = likes_data[solution_url]
@@ -93,16 +96,36 @@ def process_likes(browser: MyBrowser):
             stat.set_stat(like)
         else:
             like.mark_read()
-            skipped_notifications.append({
-                'solution_url': like.what_was_liked_url,
-                'liker_id': like.user_id,
-                'liker_name': like.user_name,
-                'text': notification_text,
-                'reason': 'Like notification without a published solution or other issue',
-                'timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            })
-            logger.warning(
-                f'Skipped like notification: URL={like.what_was_liked_url}, ID={like.user_id}, Name={like.user_name}, Text={notification_text}')
+            # Проверяем, является ли решение собственным, чтобы исключить из skipped_solutions
+            is_own_solution = False
+            if current_user_id and like.what_was_liked_url:
+                try:
+                    browser.get(like.what_was_liked_url)
+                    sleep(2)
+                    author_id = \
+                    browser.find_element(By.CLASS_NAME, 'attempt__user-link').get_attribute('href').split('/')[
+                        -1].strip()
+                    if author_id == current_user_id:
+                        is_own_solution = True
+                        logger.info(f'Skipped own solution: {like.what_was_liked_url} by {like.user_name}')
+                except Exception as e:
+                    logger.error(f'Failed to check solution ownership for {like.what_was_liked_url}: {str(e)}')
+
+            if not is_own_solution:
+                skipped_notifications.append({
+                    'solution_url': like.what_was_liked_url,
+                    'liker_id': like.user_id,
+                    'liker_name': like.user_name,
+                    'text': notification_text,
+                    'reason': 'Like notification without a published solution or other issue',
+                    'timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                })
+                logger.warning(
+                    f'Skipped like notification: URL={like.what_was_liked_url}, ID={like.user_id}, Name={like.user_name}, Text={notification_text}')
+                stat.skipped_solutions.append({
+                    'url': like.what_was_liked_url,
+                    'reason': 'Not a valid solution or already liked'
+                })
 
     # Сохраняем пропущенные уведомления
     if skipped_notifications:
