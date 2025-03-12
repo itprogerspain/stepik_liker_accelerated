@@ -1,6 +1,5 @@
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.common.by import By
-
 from class_logger import get_logger
 
 logger = get_logger('class_like')
@@ -20,23 +19,17 @@ class Like:
         self.what_was_liked_url = what_was_liked.get_attribute('href')
         self.__mark_read_btn = like.find_element(By.CLASS_NAME, 'notification__icon-action')
 
-
     def mark_read(self) -> None:
-        """
-        Если лайк, а не коммент (который надо бы прочитать самому) -
-        смело помечаем прочитанным
-        """
+        """Если лайк, а не коммент (который надо бы прочитать самому) - помечаем прочитанным"""
         if not self.is_comment:
             try:
                 self.__mark_read_btn.click()
+                logger.debug(f"Marked {self.user_name} (ID: {self.user_id}) as read")
             except Exception as e:
-                logger.error("Like mark read failed")
-                logger.error(str(self))
-                logger.error(e)
-
+                logger.error(f"Failed to mark {self.user_name} (ID: {self.user_id}) as read: {str(e)}")
 
     def get_info(self) -> tuple[str, str]:
-        """получаем url того, что было лайкнуто и id лайкнувшего"""
+        """Получаем URL того, что было лайкнуто и ID лайкнувшего"""
         solution_url = self.what_was_liked_url + self.sol_sufx
         return solution_url, self.user_id
 
@@ -47,24 +40,18 @@ class Like:
 
     @property
     def is_good(self) -> bool:
-        """ Если это решение, а не комментарий, и его лайкнули, а не прокомментировали
-        - объект подходит для обработки """
+        """Если это решение, а не комментарий, и его лайкнули, а не прокомментировали - объект подходит для обработки"""
         sol_text = self.like.find_element(By.CLASS_NAME, 'show-more__content').text
+        if 'Решение' not in sol_text or self.is_comment:
+            logger.warning(f"Skipping {self.user_name} (ID: {self.user_id}) - not a solution or is a comment")
         return 'Решение' in sol_text and not self.is_comment
 
-
     def __str__(self):
-        like_name = f'liker_name: {self.user_name}'
-        liker_id = f'liker_id: {self.user_id}'
-        what_was_liked_name = f'what_was_liked_name: {self.what_was_liked_name}'
-        what_was_liked_url = f'what_was_liked_url: {self.what_was_liked_url}'
-        comment_or_like = f'comment_or_like: {"comment" if self.is_comment else "like"}'
-        on_work = f'take_to_work: {self.is_good}'
-        return (f'{on_work}, {comment_or_like}\n'
-                f'{like_name}, {liker_id}\n'
+        return (f'take_to_work: {self.is_good}, comment_or_like: {"comment" if self.is_comment else "like"}\n'
+                f'liker_name: {self.user_name}, liker_id: {self.user_id}\n'
                 f'{self.like_info}\n'
-                f'{what_was_liked_name}\n'
-                f'{what_was_liked_url}')
+                f'what_was_liked_name: {self.what_was_liked_name}\n'
+                f'what_was_liked_url: {self.what_was_liked_url}')
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.get_info()})'

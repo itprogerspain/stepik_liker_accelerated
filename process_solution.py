@@ -15,7 +15,6 @@ from class_statistics import Statistics
 logger = get_logger('process_solution')
 stat = Statistics()
 
-
 def process_solution(browser: MyBrowser, solution_url: str, ids_list: list[str] | None = None,
                      likes_list: list[Like] | None = None) -> tuple[int, int, int]:
     """
@@ -37,8 +36,6 @@ def process_solution(browser: MyBrowser, solution_url: str, ids_list: list[str] 
     except TimeoutException:
         _ = browser.waiter.until(EC.presence_of_element_located((By.CLASS_NAME, "tab__item-counter")))
     sleep(random.uniform(2, 4))
-    # sleep(random.uniform(6, 9))
-    # sleep(random.uniform(5, 10))
 
     comments_sols = browser.find_elements(By.CLASS_NAME, "tab__item-counter")
     n_sols = '0'
@@ -57,13 +54,18 @@ def process_solution(browser: MyBrowser, solution_url: str, ids_list: list[str] 
             logger.debug(f'Обработка решения {i} из {len(raw_solutions)}')
         solution = Solution(raw_sol)
         if solution.user_id == STEPIK_SELF_ID:  # если собственное решение - пропускаем
+            logger.info(f"Skipping own solution by {solution.user_name} (ID: {solution.user_id})")
+            stat.set_stat(solution)
             continue
         elif solution.voted:  # если уже лайкали - пропускаем
+            logger.info(f"Skipping already liked solution by {solution.user_name} (ID: {solution.user_id})")
             already_liked += 1
+            stat.set_stat(solution)
         elif solution.user_id in friends_data or solution.user_id in ids_list:
             liked += 1
             browser.execute_script("arguments[0].scrollIntoView(true);", solution.sol)
             solution.like()
+            sleep(random.uniform(1, 3))  # Задержка после лайка
 
         stat.set_stat(solution)  # Статистика
 
@@ -72,9 +74,11 @@ def process_solution(browser: MyBrowser, solution_url: str, ids_list: list[str] 
     page_title = browser.execute_script("return document.title;")
     solution_count = len(raw_solutions)
     logger.info(f'{page_title} ({solution_url}). Всего решений {solution_count}')
-    logger.info(f'новых лайков: {liked}, старых лайков: {already_liked}')
+    logger.info(f'Новых лайков: {liked}, старых лайков: {already_liked}')
 
-    browser.switch_to.window(browser.window_handles[0])  # switch to main tab
+    sleep(1)  # Задержка перед закрытием страницы для полной загрузки
+    browser.close()  # Закрываем вкладку
+    browser.switch_to.window(browser.window_handles[0])  # Возвращаемся к основной вкладке
 
     for like in likes_list:  # Помечаем лайки прочитанными
         browser.execute_script("arguments[0].scrollIntoView(true);", like.like)
@@ -82,7 +86,6 @@ def process_solution(browser: MyBrowser, solution_url: str, ids_list: list[str] 
         logger.debug(f'{repr(like)} was marked')
 
     return liked, already_liked, len(raw_solutions)
-
 
 if __name__ == '__main__':
     url = 'https://stepik.org/lesson/361657/step/3?thread=solutions'

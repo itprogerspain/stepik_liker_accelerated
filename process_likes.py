@@ -32,12 +32,12 @@ def process_likes(browser: MyBrowser):
         logger.warning('Нет лайков, или количество не прогрузилось')
         n_events = '0'
 
-    logger.info('Number of events: {}'.format(n_events))
+    logger.info(f'Number of events: {n_events}')
 
     # Динамический скроллинг
     scroll_down(browser, n_events, logger, element_class='notifications__widget')
     raw_likes_list = browser.find_elements(By.CLASS_NAME, 'notifications__widget')
-    logger.info('Total number of likes: {}'.format(len(raw_likes_list)))
+    logger.info(f'Total number of likes: {len(raw_likes_list)}')
 
     likes_data_vals = lambda: {'ids_list': [], 'likes_list': []}
     likes_data = defaultdict(likes_data_vals)
@@ -45,16 +45,16 @@ def process_likes(browser: MyBrowser):
     # Фильтрация, группировка лайков
     for i, raw_like in enumerate(raw_likes_list, 1):
         if not i % 10:
-            logger.debug(f'processing raw_like {i} of {len(raw_likes_list)}')
+            logger.debug(f'Processing raw_like {i} of {len(raw_likes_list)}')
         like = Like(raw_like)
         if like.is_good:
             solution_url, liker_id = like.get_info()
             val = likes_data[solution_url]
             val['ids_list'].append(liker_id)
             val['likes_list'].append(like)
-            stat.set_stat(like)  # Статистика
+            stat.set_stat(like)
         else:
-            like.mark_read()  # Если не подходит для обработки - помечаем прочитанным
+            stat.set_stat(like)  # Логируем скипы
     stat.dump_data()
     return likes_data
 
@@ -62,4 +62,3 @@ if __name__ == '__main__':
     browser = MyBrowser()
     likes_data = process_likes(browser)
     print(f'len = {len(likes_data)}')
-

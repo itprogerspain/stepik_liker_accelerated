@@ -46,7 +46,7 @@ class MyFirefoxBrowser(webdriver.Firefox):
             self.waiter.until(EC.presence_of_element_located((By.CLASS_NAME, 'navbar__auth_login'))).click()
         except TimeoutException:
             logger.warning("Login button not found, possibly already logged in")
-            pass  # Пропускаем, если уже авторизованы
+            pass
 
         name_field = self.waiter.until(EC.presence_of_element_located((By.ID, 'id_login_email')))
         pwd_field = self.waiter.until(EC.presence_of_element_located((By.ID, 'id_login_password')))
@@ -109,9 +109,9 @@ class MyFirefoxBrowser(webdriver.Firefox):
                 if not button.is_selected():
                     button.click()
                     logger.debug(f'Liked a comment on {self.current_url}')
-                    sleep(random.uniform(0.3, 0.7))
+                    sleep(random.uniform(1, 3))  # Задержка 1-3 секунды после лайка
         except Exception as e:
-            logger.warning(f'Could not find like buttons: {e}')
+            logger.error(f"Failed to find or click like buttons on {self.current_url}: {str(e)}")
 
 class MyChromeBrowser(webdriver.Chrome):
     __instance = None
@@ -202,9 +202,9 @@ class MyChromeBrowser(webdriver.Chrome):
                 if not button.is_selected():
                     button.click()
                     logger.debug(f'Liked a comment on {self.current_url}')
-                    sleep(random.uniform(1, 2))
+                    sleep(random.uniform(1, 3))  # Задержка 1-3 секунды после лайка
         except Exception as e:
-            logger.warning(f'Could not find like buttons: {e}')
+            logger.error(f"Failed to find or click like buttons on {self.current_url}: {str(e)}")
 
 # Можно выбрать Chrome или Firefox
 # MyBrowser = MyFirefoxBrowser
