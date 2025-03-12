@@ -1,5 +1,5 @@
 # Файл: class_browser.py
-# Описание: Добавлен метод для получения ID текущего пользователя
+# Описание: Добавлена поддержка протокола менеджера контекста
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -37,12 +37,26 @@ class MyBrowser:
             logger.error(f"Failed to get current user ID: {str(e)}")
             return None
 
+    def find_element(self, by, value):
+        return self.driver.find_element(by, value)
+
+    def find_elements(self, by, value):
+        return self.driver.find_elements(by, value)
+
     def close(self):
         self.driver.quit()
+        logger.info("Browser closed")
+
+    def __enter__(self):
+        """Метод, вызываемый при входе в блок with."""
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        """Метод, вызываемый при выходе из блока with."""
+        self.close()
 
 if __name__ == '__main__':
-    browser = MyBrowser()
-    browser.get('https://stepik.org')
-    user_id = browser.get_current_user_id()
-    print(f"User ID: {user_id}")
-    browser.close()
+    with MyBrowser() as browser:
+        browser.get('https://stepik.org')
+        user_id = browser.get_current_user_id()
+        print(f"User ID: {user_id}")
