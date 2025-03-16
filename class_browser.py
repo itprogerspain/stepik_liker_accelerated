@@ -109,7 +109,7 @@ class MyFirefoxBrowser(webdriver.Firefox):
                 if not button.is_selected():
                     button.click()
                     logger.debug(f'Liked a comment on {self.current_url}')
-                    sleep(random.uniform(2, 4))  # Задержка 1-3 секунды после лайка
+                    sleep(random.uniform(2, 3))  # Задержка 1-3 секунды после лайка
         except Exception as e:
             logger.error(f"Failed to find or click like buttons on {self.current_url}: {str(e)}")
 
@@ -202,7 +202,7 @@ class MyChromeBrowser(webdriver.Chrome):
                 if not button.is_selected():
                     button.click()
                     logger.debug(f'Liked a comment on {self.current_url}')
-                    sleep(random.uniform(2, 4))  # Задержка 1-3 секунды после лайка
+                    sleep(random.uniform(2, 3))  # Задержка 1-3 секунды после лайка
         except Exception as e:
             logger.error(f"Failed to find or click like buttons on {self.current_url}: {str(e)}")
 

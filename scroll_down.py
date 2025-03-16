@@ -22,7 +22,7 @@ def scroll_down(browser, n: str, logger: logging.Logger, element_class: str = No
     max_attempts = 10  # Максимальное количество попыток прокрутки
     for i in range(max_attempts):
         browser.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-        sleep(random.uniform(2, 4))  # Задержка 2-4 секунды
+        sleep(random.uniform(3, 5))  # Задержка 3-5 секунды
         if element_class:
             elements = browser.find_elements(By.CLASS_NAME, element_class)
             current_count = len(elements)
