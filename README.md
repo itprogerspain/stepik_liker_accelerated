@@ -1,5 +1,5 @@
 # stepik_liker
-### автоматическая раздача лайков на Stepik
+### автоматический возврат лайков на Stepik
 
 в `class_browser.py` можно выбрать чем пользоваться
 - Chrome -  `MyBrowser = MyChromeBrowser`, понадобится [chromedriver](https://googlechromelabs.github.io/chrome-for-testing/)
