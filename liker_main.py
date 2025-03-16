@@ -28,7 +28,7 @@ with MyBrowser() as browser:
                 else:
                     logger.warning(f'Skipping paid course: {url}')
             solution_urls = []
-            sleep(2)  # Пауза между пакетами
+            sleep(3)  # Пауза между пакетами
 
 end_time = perf_counter()
 running_time = end_time - start_time

@@ -55,7 +55,7 @@ class MyFirefoxBrowser(webdriver.Firefox):
         name_field.send_keys(user.username)
         pwd_field.send_keys(user.password)
         enter_btn.click()
-        sleep(2)
+        sleep(3)
 
         try:
             self.waiter.until(EC.presence_of_element_located((By.CLASS_NAME, 'navbar__profile-toggler')))
@@ -71,7 +71,7 @@ class MyFirefoxBrowser(webdriver.Firefox):
         self.find_element(By.CLASS_NAME, 'navbar__profile-toggler').click()
         user_profile = self.waiter.until(EC.presence_of_element_located((By.CSS_SELECTOR, "[data-qa='menu-item-profile']")))
         *_, self.STEPIK_SELF_ID, _ = user_profile.find_element(By.TAG_NAME, 'a').get_attribute('href').split('/')
-        sleep(1)
+        sleep(2)
 
     def open_new_tab(self, url):
         self.execute_script(f'window.open("{url}", "_blank");')
@@ -89,7 +89,7 @@ class MyFirefoxBrowser(webdriver.Firefox):
 
     def go_to_notifications(self):
         self.get('https://stepik.org/notifications?type=comments')
-        sleep(1)
+        sleep(2)
         initial_notifications = self.waiter.until(EC.presence_of_all_elements_located((By.CLASS_NAME, 'notifications__widget')))
         last_len = len(initial_notifications)
         for _ in range(5):
@@ -99,7 +99,7 @@ class MyFirefoxBrowser(webdriver.Firefox):
             if current_len == last_len:
                 break
             last_len = current_len
-            sleep(1)
+            sleep(2)
         return new_notifications
 
     def like_comment(self):
@@ -109,7 +109,7 @@ class MyFirefoxBrowser(webdriver.Firefox):
                 if not button.is_selected():
                     button.click()
                     logger.debug(f'Liked a comment on {self.current_url}')
-                    sleep(random.uniform(1, 3))  # Задержка 1-3 секунды после лайка
+                    sleep(random.uniform(2, 4))  # Задержка 1-3 секунды после лайка
         except Exception as e:
             logger.error(f"Failed to find or click like buttons on {self.current_url}: {str(e)}")
 
@@ -148,7 +148,7 @@ class MyChromeBrowser(webdriver.Chrome):
         name_field.send_keys(user.username)
         pwd_field.send_keys(user.password)
         enter_btn.click()
-        sleep(2)
+        sleep(3)
 
         try:
             self.waiter.until(EC.presence_of_element_located((By.CLASS_NAME, 'navbar__profile-toggler')))
@@ -164,7 +164,7 @@ class MyChromeBrowser(webdriver.Chrome):
         self.find_element(By.CLASS_NAME, 'navbar__profile-toggler').click()
         user_profile = self.waiter.until(EC.presence_of_element_located((By.CSS_SELECTOR, "[data-qa='menu-item-profile']")))
         *_, self.STEPIK_SELF_ID, _ = user_profile.find_element(By.TAG_NAME, 'a').get_attribute('href').split('/')
-        sleep(1)
+        sleep(2)
 
     def open_new_tab(self, url):
         self.execute_script(f'window.open("{url}", "_blank");')
@@ -182,7 +182,7 @@ class MyChromeBrowser(webdriver.Chrome):
 
     def go_to_notifications(self):
         self.get('https://stepik.org/notifications?type=comments')
-        sleep(1)
+        sleep(2)
         initial_notifications = self.waiter.until(EC.presence_of_all_elements_located((By.CLASS_NAME, 'notifications__widget')))
         last_len = len(initial_notifications)
         for _ in range(5):
@@ -192,7 +192,7 @@ class MyChromeBrowser(webdriver.Chrome):
             if current_len == last_len:
                 break
             last_len = current_len
-            sleep(1)
+            sleep(2)
         return new_notifications
 
     def like_comment(self):
@@ -202,7 +202,7 @@ class MyChromeBrowser(webdriver.Chrome):
                 if not button.is_selected():
                     button.click()
                     logger.debug(f'Liked a comment on {self.current_url}')
-                    sleep(random.uniform(1, 3))  # Задержка 1-3 секунды после лайка
+                    sleep(random.uniform(2, 4))  # Задержка 1-3 секунды после лайка
         except Exception as e:
             logger.error(f"Failed to find or click like buttons on {self.current_url}: {str(e)}")
 
