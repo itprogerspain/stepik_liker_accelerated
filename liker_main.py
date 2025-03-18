@@ -4,6 +4,8 @@ from process_likes import process_likes
 from process_solution import process_solution
 from class_browser import MyBrowser
 from time import sleep
+from selenium.webdriver.support import expected_conditions as EC  # Добавлен импорт
+from selenium.webdriver.common.by import By  # Добавлен импорт для By
 
 logger = get_logger('liker_main')
 
