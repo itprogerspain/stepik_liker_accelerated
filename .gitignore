@@ -15,6 +15,7 @@ skipped_notifications.json
 
 # C extensions
 *.so
+*.json
 
 # Distribution / packaging
 .Python
