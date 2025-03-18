@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 from class_like import Like
 from class_solution import Solution
+from datetime import datetime
 
 logger = get_logger('class_statistics')
 
@@ -21,6 +22,7 @@ class Statistics:
         self.stat_data = {}
         self.skipped_solutions = []
         self.skipped_notifications = []
+        self.current_session_likes = []
         self.__load_data()
 
     def __load_data(self):
@@ -44,8 +46,13 @@ class Statistics:
         with open(self.skipped_notifications_file, 'w', encoding='utf-8') as f:
             logger.info(f'Skipped notifications saved to {self.skipped_notifications_file}')
             json.dump(self.skipped_notifications, f, ensure_ascii=False, indent=4)
+        # Сохраняем current_session_likes с уникальным именем файла
+        current_session_file = f'current_session_likes_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.json'
+        with open(current_session_file, 'w', encoding='utf-8') as f:
+            logger.info(f'Current session likes saved to {current_session_file}')
+            json.dump(self.current_session_likes, f, ensure_ascii=False, indent=4)
 
-    def set_stat(self, item: Solution | Like, total_notifications: int = None):
+    def set_stat(self, item: Solution | Like, total_notifications: int = None, failed: bool = False):
         """Статистика. Отслеживаем лайки и скипы текущей сессии"""
         user_id, user_name, like_from, like_to = item.get_statistic_info()
         logger.debug(f'Processing {user_id}, {user_name}, {like_from}, {like_to}')
@@ -60,12 +67,22 @@ class Statistics:
             self.skipped_solutions.append({
                 'user_id': item.user_id,
                 'user_name': item.user_name,
-                'url': item.sol.get_attribute('data-url') if item.sol.get_attribute('data-url') else item.sol.get_attribute('href'),  # Точный URL решения
+                'url': item.sol.get_attribute('data-url') if item.sol.get_attribute('data-url') else item.sol.get_attribute('href'),
                 'reason': 'Already voted'
             })
             # Ограничиваем количество скипов текущей сессией
             if total_notifications and len(self.skipped_solutions) > total_notifications:
                 self.skipped_solutions.pop(0)  # Удаляем самый старый скип, если превышен лимит
+        elif isinstance(item, Like) and item.is_good:
+            status = 'processed' if not failed else 'failed'
+            self.current_session_likes.append({
+                'user_id': user_id,
+                'user_name': user_name,
+                'url': item.what_was_liked_url,
+                'timestamp': datetime.now().isoformat(),
+                'status': status
+            })
+            logger.info(f"Added like from {user_name} (ID: {user_id}) to current session with status {status}")
         else:
             data = self.stat_data.get(user_id, {'names': [], 'likes_from': 0, 'likes_to': 0})
             if user_name not in data['names']:

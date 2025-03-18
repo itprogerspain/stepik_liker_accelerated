@@ -61,12 +61,16 @@ def process_solution(browser: MyBrowser, solution_url: str, ids_list: list[str] 
             already_liked += 1
             stat.set_stat(solution, total_notifications)
         elif solution.user_id in friends_data or solution.user_id in ids_list:
-            liked += 1
-            browser.execute_script("arguments[0].scrollIntoView(true);", solution.sol)
-            solution.like()
-            sleep(random.uniform(2, 4))  # Задержка после лайка
-
-        stat.set_stat(solution, total_notifications)  # Статистика
+            try:
+                browser.execute_script("arguments[0].scrollIntoView(true);", solution.sol)
+                solution.like()
+                sleep(random.uniform(1, 3))  # Задержка после лайка
+                liked += 1
+            except Exception as e:
+                logger.error(f"Failed to like solution by {solution.user_name} (ID: {solution.user_id}) at {solution_url}: {str(e)}")
+                stat.set_stat(solution, total_notifications, failed=True)  # Передаём failed=True
+        else:
+            stat.set_stat(solution, total_notifications)
 
     stat.dump_data()
 
@@ -75,7 +79,7 @@ def process_solution(browser: MyBrowser, solution_url: str, ids_list: list[str] 
     logger.info(f'{page_title} ({solution_url}). Всего решений {solution_count}')
     logger.info(f'Новых лайков: {liked}, старых лайков: {already_liked}')
 
-    sleep(2)  # Задержка перед закрытием страницы для полной загрузки
+    sleep(1)  # Задержка перед закрытием страницы для полной загрузки
     browser.close()  # Закрываем вкладку
     browser.switch_to.window(browser.window_handles[0])  # Возвращаемся к основной вкладке
 

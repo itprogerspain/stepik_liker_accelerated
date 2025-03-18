@@ -19,14 +19,14 @@ def scroll_down(browser, n: str, logger: logging.Logger, element_class: str = No
         logger.warning(f"Invalid n value, using default {n}")
 
     last_count = 0
-    max_attempts = 10  # Максимальное количество попыток прокрутки
+    max_attempts = 20  # Увеличено до 20 попыток
     for i in range(max_attempts):
         browser.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-        sleep(random.uniform(3, 5))  # Задержка 3-5 секунды
+        sleep(random.uniform(3, 5))  # Увеличено до 3-5 секунд
         if element_class:
             elements = browser.find_elements(By.CLASS_NAME, element_class)
             current_count = len(elements)
-            logger.debug(f"Loaded {current_count}/{n} elements after scroll {i + 1}")
+            logger.debug(f"Scroll attempt {i + 1}/{max_attempts}, loaded {current_count}/{n} elements")
             if current_count >= n or current_count == last_count:
                 logger.info(f"Finished scrolling with {current_count} elements loaded")
                 break
