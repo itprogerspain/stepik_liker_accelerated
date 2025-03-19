@@ -66,16 +66,16 @@ def process_solution(browser: MyBrowser, solution_url: str, ids_list: list[str] 
                 solution.like()
                 sleep(random.uniform(1, 3))  # Задержка после лайка
                 liked += 1
-                # Обновляем статус после успешного лайка
+                # Обновляем статус для всех соответствующих лайков из likes_list
                 for like in likes_list:
-                    if like.user_id == solution.user_id and like.what_was_liked_url == solution_url:
+                    if like.user_id == solution.user_id and like.what_was_liked_url in solution_url:  # Проверяем, что URL частично совпадает
                         stat.update_like_status(like, success=True)
             except Exception as e:
                 logger.error(f"Failed to like solution by {solution.user_name} (ID: {solution.user_id}) at {solution_url}: {str(e)}")
-                stat.set_stat(solution, total_notifications, failed=True)  # Передаём failed=True
-                # Обновляем статус после неудачной попытки
+                stat.set_stat(solution, total_notifications, failed=True)
+                # Обновляем статус для всех соответствующих лайков из likes_list
                 for like in likes_list:
-                    if like.user_id == solution.user_id and like.what_was_liked_url == solution_url:
+                    if like.user_id == solution.user_id and like.what_was_liked_url in solution_url:
                         stat.update_like_status(like, success=False)
         else:
             stat.set_stat(solution, total_notifications)
