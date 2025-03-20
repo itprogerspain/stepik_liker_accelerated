@@ -30,12 +30,21 @@ def process_solution(browser: MyBrowser, solution_url: str, ids_list: list[str] 
     STEPIK_SELF_ID = browser.STEPIK_SELF_ID
     friends_data = browser.friends_data
 
+    # Открываем страницу с решениями
     browser.execute_script(f'window.open("{solution_url}", "_blank1");')  # open url in new tab
     browser.switch_to.window(browser.window_handles[-1])  # switch to new tab
     try:
         _ = browser.waiter.until(EC.presence_of_element_located((By.CLASS_NAME, "tab__item-counter")))
     except TimeoutException:
-        _ = browser.waiter.until(EC.presence_of_element_located((By.CLASS_NAME, "tab__item-counter")))
+        logger.error(f"Failed to load solution page {solution_url}: tab__item-counter not found")
+        # Устанавливаем статус "error" для всех уведомлений, связанных с этой ссылкой
+        for like in likes_list:
+            stat.update_like_status(like, status="error")
+        stat.dump_data()
+        browser.close()  # Закрываем вкладку
+        browser.switch_to.window(browser.window_handles[0])  # Возвращаемся к основной вкладке
+        return 0, 0, 0  # Возвращаем нули, так как обработка не удалась
+
     sleep(random.uniform(2, 4))
 
     comments_sols = browser.find_elements(By.CLASS_NAME, "tab__item-counter")
@@ -49,7 +58,25 @@ def process_solution(browser: MyBrowser, solution_url: str, ids_list: list[str] 
     scroll_down(browser, n_sols, logger, element_class='comment-widget')
     raw_solutions = browser.find_elements(By.CLASS_NAME, 'comment-widget')  # собираем все решения на странице
 
+    # Проверяем, есть ли решения
+    if not raw_solutions:
+        logger.warning(f"No solutions found at {solution_url}")
+        # Устанавливаем статус "pending" для всех уведомлений, связанных с этой ссылкой
+        for like in likes_list:
+            stat.update_like_status(like, status="pending")
+        stat.dump_data()
+        browser.close()  # Закрываем вкладку
+        browser.switch_to.window(browser.window_handles[0])  # Возвращаемся к основной вкладке
+        # Помечаем уведомления как прочитанные, так как отсутствие решений — это нормальный случай
+        for like in likes_list:
+            browser.execute_script("arguments[0].scrollIntoView(true);", like.like)
+            like.mark_read()
+            logger.debug(f'{repr(like)} was marked')
+        return 0, 0, 0
+
     liked = already_liked = 0
+    error_occurred = False  # Флаг для отслеживания ошибок
+
     for i, raw_sol in enumerate(raw_solutions, 1):
         if not i % 20:
             logger.debug(f'Обработка решения {i} из {len(raw_solutions)}')
@@ -60,23 +87,28 @@ def process_solution(browser: MyBrowser, solution_url: str, ids_list: list[str] 
             logger.info(f"Skipping already liked solution by {solution.user_name} (ID: {solution.user_id})")
             already_liked += 1
             stat.set_stat(solution, total_notifications)
+            # Устанавливаем статус "done before" для всех соответствующих уведомлений
+            for like in likes_list:
+                if like.user_id == solution.user_id and like.what_was_liked_url in solution_url:
+                    stat.update_like_status(like, status="done before")
         elif solution.user_id in friends_data or solution.user_id in ids_list:
             try:
                 browser.execute_script("arguments[0].scrollIntoView(true);", solution.sol)
                 solution.like()
                 sleep(random.uniform(1, 3))  # Задержка после лайка
                 liked += 1
-                # Обновляем статус для всех соответствующих лайков из likes_list
+                # Устанавливаем статус "processed" для всех соответствующих уведомлений
                 for like in likes_list:
-                    if like.user_id == solution.user_id and like.what_was_liked_url in solution_url:  # Проверяем, что URL частично совпадает
-                        stat.update_like_status(like, success=True)
+                    if like.user_id == solution.user_id and like.what_was_liked_url in solution_url:
+                        stat.update_like_status(like, status="processed")
             except Exception as e:
                 logger.error(f"Failed to like solution by {solution.user_name} (ID: {solution.user_id}) at {solution_url}: {str(e)}")
                 stat.set_stat(solution, total_notifications, failed=True)
-                # Обновляем статус для всех соответствующих лайков из likes_list
+                # Устанавливаем статус "error" для всех соответствующих уведомлений
                 for like in likes_list:
                     if like.user_id == solution.user_id and like.what_was_liked_url in solution_url:
-                        stat.update_like_status(like, success=False)
+                        stat.update_like_status(like, status="error")
+                error_occurred = True  # Устанавливаем флаг ошибки
         else:
             stat.set_stat(solution, total_notifications)
 
@@ -91,10 +123,16 @@ def process_solution(browser: MyBrowser, solution_url: str, ids_list: list[str] 
     browser.close()  # Закрываем вкладку
     browser.switch_to.window(browser.window_handles[0])  # Возвращаемся к основной вкладке
 
-    for like in likes_list:  # Помечаем лайки прочитанными
-        browser.execute_script("arguments[0].scrollIntoView(true);", like.like)
-        like.mark_read()
-        logger.debug(f'{repr(like)} was marked')
+    # Помечаем уведомления как прочитанные, только если не было ошибок
+    for like in likes_list:
+        # Проверяем статус уведомления
+        status = next((entry['status'] for entry in stat.current_session_likes if entry['user_id'] == like.user_id and entry['url'] == like.what_was_liked_url), None)
+        if status != "error":  # Не помечаем как прочитанное, если статус "error"
+            browser.execute_script("arguments[0].scrollIntoView(true);", like.like)
+            like.mark_read()
+            logger.debug(f'{repr(like)} was marked')
+        else:
+            logger.debug(f'Skipping mark_read for {repr(like)} due to error status')
 
     return liked, already_liked, len(raw_solutions)
 

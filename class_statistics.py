@@ -65,6 +65,15 @@ class Statistics:
                 'url': item.what_was_liked_url,
                 'reason': 'Not a solution or is a comment'
             })
+            # Устанавливаем статус "pending" для уведомлений, которые не прошли проверку is_good
+            self.current_session_likes.append({
+                'user_id': user_id,
+                'user_name': user_name,
+                'url': item.what_was_liked_url,
+                'timestamp': datetime.now().isoformat(),
+                'status': 'pending'
+            })
+            logger.info(f"Added like from {user_name} (ID: {user_id}) to current session with status 'pending'")
         elif isinstance(item, Solution) and item.voted:  # Исключаем собственные решения
             self.skipped_solutions.append({
                 'user_id': item.user_id,
@@ -76,15 +85,15 @@ class Statistics:
             if total_notifications and len(self.skipped_solutions) > total_notifications:
                 self.skipped_solutions.pop(0)  # Удаляем самый старый скип, если превышен лимит
         elif isinstance(item, Like) and item.is_good:
-            # Изначально устанавливаем нейтральный статус и временную метку
+            # Для уведомлений, которые прошли проверку is_good, добавляем запись с временным статусом
             self.current_session_likes.append({
                 'user_id': user_id,
                 'user_name': user_name,
                 'url': item.what_was_liked_url,
-                'timestamp': datetime.now().isoformat(),  # Время добавления лайка
-                'status': 'pending'  # Статус будет обновлён позже
+                'timestamp': datetime.now().isoformat(),
+                'status': 'awaiting'  # Временный статус, будет обновлён позже
             })
-            logger.info(f"Added like from {user_name} (ID: {user_id}) to current session with initial status 'pending'")
+            logger.info(f"Added like from {user_name} (ID: {user_id}) to current session with initial status 'awaiting'")
         else:
             data = self.stat_data.get(user_id, {'names': [], 'likes_from': 0, 'likes_to': 0})
             if user_name not in data['names']:
@@ -93,11 +102,11 @@ class Statistics:
             data['likes_to'] += like_to
             self.stat_data[user_id] = data
 
-    def update_like_status(self, like: Like, success: bool):
+    def update_like_status(self, like: Like, status: str):
         """Обновляет статус и время обработки лайка после попытки поставить лайк"""
         for entry in self.current_session_likes:
             if entry['user_id'] == like.user_id and entry['url'] == like.what_was_liked_url:
-                entry['status'] = 'processed' if success else 'failed'
+                entry['status'] = status
                 entry['timestamp'] = datetime.now().isoformat()  # Обновляем время на момент обработки
                 logger.info(f"Updated like from {like.user_name} (ID: {like.user_id}) to status {entry['status']} at {entry['timestamp']}")
                 break
