@@ -1,6 +1,7 @@
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.common.by import By
 from class_logger import get_logger
+from selenium.common.exceptions import TimeoutException
 
 logger = get_logger('class_like')
 
@@ -23,7 +24,12 @@ class Like:
         """Если лайк, а не коммент (который надо бы прочитать самому) - помечаем прочитанным"""
         if not self.is_comment:
             try:
-                self.__mark_read_btn.click()
+                # Прокручиваем к кнопке через JavaScript
+                self.like.parent.execute_script("arguments[0].scrollIntoView({ behavior: 'smooth', block: 'center' });", self.__mark_read_btn)
+                # Даём время на завершение прокрутки
+                sleep(1)
+                # Кликаем через JavaScript, чтобы избежать перекрытия
+                self.like.parent.execute_script("arguments[0].click();", self.__mark_read_btn)
                 logger.debug(f"Marked {self.user_name} (ID: {self.user_id}) as read")
             except Exception as e:
                 logger.error(f"Failed to mark {self.user_name} (ID: {self.user_id}) as read: {str(e)}")
@@ -47,10 +53,10 @@ class Like:
         return 'Решение' in sol_text and not self.is_comment
 
     def __str__(self):
-        return (f'take_to_work: {self.is_good}, comment_or_like: {"comment" if self.is_comment else "like"}\n'
-                f'liker_name: {self.user_name}, liker_id: {self.user_id}\n'
-                f'{self.like_info}\n'
-                f'what_was_liked_name: {self.what_was_liked_name}\n'
+        return (f'take_to_work: {self.is_good}, comment_or_like: {"comment" if self.is_comment else "like"}\n'  
+                f'liker_name: {self.user_name}, liker_id: {self.user_id}\n'  
+                f'{self.like_info}\n'  
+                f'what_was_liked_name: {self.what_was_liked_name}\n'  
                 f'what_was_liked_url: {self.what_was_liked_url}')
 
     def __repr__(self):
