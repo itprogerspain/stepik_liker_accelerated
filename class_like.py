@@ -1,7 +1,7 @@
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.common.by import By
 from class_logger import get_logger
-from selenium.common.exceptions import TimeoutException
+from time import sleep  # Добавляем импорт sleep
 
 logger = get_logger('class_like')
 
@@ -61,4 +61,3 @@ class Like:
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.get_info()})'
-
