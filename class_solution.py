@@ -1,4 +1,4 @@
-from time import sleep  # Добавляем импорт sleep
+from time import sleep
 from class_logger import get_logger
 
 from selenium.webdriver.remote.webelement import WebElement
@@ -9,7 +9,7 @@ logger = get_logger('class_solution')
 class Solution:
     def __init__(self, sol: WebElement, STEPIK_SELF_ID: str):
         self.sol = sol
-        self.STEPIK_SELF_ID = STEPIK_SELF_ID  # Добавляем STEPIK_SELF_ID
+        self.STEPIK_SELF_ID = STEPIK_SELF_ID
         user = sol.find_element(By.CLASS_NAME, 'comments-user-badge__name')
         self.user_name = user.text
         self.user_id = user.get_attribute('href').split('/')[-1].strip()
@@ -24,16 +24,17 @@ class Solution:
             # Прокручиваем к кнопке лайка
             self.sol.parent.execute_script("arguments[0].scrollIntoView({ behavior: 'smooth', block: 'center' });", self.like_btn)
             sleep(1)  # Даём время на прокрутку
-            # Кликаем через JavaScript для надёжности
+            # Кликаем через JavaScript
             self.sol.parent.execute_script("arguments[0].click();", self.like_btn)
-            # Проверяем, что лайк проставлен (например, изменилось ли состояние кнопки)
-            sleep(1)  # Даём время на обновление страницы
-            is_liked = 'voted' in self.like_btn.get_attribute('class')  # Проверяем, добавился ли класс "voted"
+            # Увеличиваем время ожидания для обновления страницы
+            sleep(3)  # Ждём 3 секунды для обновления интерфейса
+            # Проверяем наличие атрибута data-is-active
+            is_liked = self.like_btn.get_attribute('data-is-active') is not None
             if is_liked:
                 logger.debug(f"Successfully liked solution by {self.user_name} (ID: {self.user_id})")
                 return True
             else:
-                logger.error(f"Failed to like solution by {self.user_name} (ID: {self.user_id}): Like button not updated")
+                logger.error(f"Failed to like solution by {self.user_name} (ID: {self.user_id}): data-is-active not found")
                 return False
         except Exception as e:
             logger.error(f"Failed to like solution by {self.user_name} (ID: {self.user_id}): {str(e)}")
