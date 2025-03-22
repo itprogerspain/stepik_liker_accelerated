@@ -1,3 +1,4 @@
+from time import sleep  # Добавляем импорт sleep
 from class_logger import get_logger
 
 from selenium.webdriver.remote.webelement import WebElement
