@@ -94,21 +94,26 @@ def process_solution(browser: MyBrowser, solution_url: str, ids_list: list[str] 
         elif solution.user_id in friends_data or solution.user_id in ids_list:
             try:
                 browser.execute_script("arguments[0].scrollIntoView(true);", solution.sol)
-                solution.like()
-                sleep(random.uniform(1, 3))  # Задержка после лайка
-                liked += 1
-                # Устанавливаем статус "processed" для всех соответствующих уведомлений
-                for like in likes_list:
-                    if like.user_id == solution.user_id and like.what_was_liked_url in solution_url:
-                        stat.update_like_status(like, status="processed")
+                if solution.like():  # Проверяем результат
+                    sleep(random.uniform(1, 3))  # Задержка после успешного лайка
+                    liked += 1
+                    # Устанавливаем статус "processed" только при успешном лайке
+                    for like in likes_list:
+                        if like.user_id == solution.user_id and like.what_was_liked_url in solution_url:
+                            stat.update_like_status(like, status="processed")
+                else:
+                    # Если лайк не проставился, устанавливаем статус "error"
+                    for like in likes_list:
+                        if like.user_id == solution.user_id and like.what_was_liked_url in solution_url:
+                            stat.update_like_status(like, status="error")
+                    error_occurred = True
             except Exception as e:
                 logger.error(f"Failed to like solution by {solution.user_name} (ID: {solution.user_id}) at {solution_url}: {str(e)}")
                 stat.set_stat(solution, total_notifications, failed=True)
-                # Устанавливаем статус "error" для всех соответствующих уведомлений
                 for like in likes_list:
                     if like.user_id == solution.user_id and like.what_was_liked_url in solution_url:
                         stat.update_like_status(like, status="error")
-                error_occurred = True  # Устанавливаем флаг ошибки
+                error_occurred = True
         else:
             stat.set_stat(solution, total_notifications)
 

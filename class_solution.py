@@ -17,11 +17,26 @@ class Solution:
         self.n_likes = int('0' + sol.find_element(By.CSS_SELECTOR, "[data-type='like']").text)
         self.n_dislikes = int('0' + sol.find_element(By.CSS_SELECTOR, "[data-type='dislike']").text)
 
-    def like(self):
+    def like(self) -> bool:
+        """Проставляет лайк и возвращает True, если лайк успешно проставлен, иначе False"""
         try:
-            self.like_btn.click()
+            # Прокручиваем к кнопке лайка
+            self.sol.parent.execute_script("arguments[0].scrollIntoView({ behavior: 'smooth', block: 'center' });", self.like_btn)
+            sleep(1)  # Даём время на прокрутку
+            # Кликаем через JavaScript для надёжности
+            self.sol.parent.execute_script("arguments[0].click();", self.like_btn)
+            # Проверяем, что лайк проставлен (например, изменилось ли состояние кнопки)
+            sleep(1)  # Даём время на обновление страницы
+            is_liked = 'voted' in self.like_btn.get_attribute('class')  # Проверяем, добавился ли класс "voted"
+            if is_liked:
+                logger.debug(f"Successfully liked solution by {self.user_name} (ID: {self.user_id})")
+                return True
+            else:
+                logger.error(f"Failed to like solution by {self.user_name} (ID: {self.user_id}): Like button not updated")
+                return False
         except Exception as e:
             logger.error(f"Failed to like solution by {self.user_name} (ID: {self.user_id}): {str(e)}")
+            return False
 
     def get_statistic_info(self):
         like_from = 0
@@ -29,5 +44,5 @@ class Solution:
         return self.user_id, self.user_name, like_from, like_to
 
     def __str__(self):
-        return (f'{self.user_name}, {self.user_id}\n'
+        return (f'{self.user_name}, {self.user_id}\n'  
                 f'likes: {self.n_likes}, dislikes: {self.n_dislikes}')
