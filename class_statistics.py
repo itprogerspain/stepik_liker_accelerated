@@ -27,29 +27,12 @@ class Statistics:
         self.__load_data()
 
     def __load_data(self):
-        # Перезаписываем all_stats.json при каждом запуске
-        with open(self.stat_file_name, 'w', encoding='utf-8') as f:
-            json.dump({}, f)
-        # Перезаписываем skipped_solutions.json и skipped_notifications.json при каждом запуске
-        with open(self.skipped_solutions_file, 'w', encoding='utf-8') as f:
-            json.dump([], f)
-        with open(self.skipped_notifications_file, 'w', encoding='utf-8') as f:
-            json.dump([], f)
-        # Перезаписываем current_session_likes.json при каждом запуске
+        # Оставляем только инициализацию current_session_likes.json, остальные файлы не трогаем
         with open(self.session_file, 'w', encoding='utf-8') as f:
             json.dump([], f)
 
     def dump_data(self):
-        """Сохранение всех файлов статистики с перезаписью"""
-        with open(self.stat_file_name, 'w', encoding='utf-8') as f:
-            logger.info(f'Stat data saved to {self.stat_file_name}')
-            json.dump(self.stat_data, f, ensure_ascii=False, indent=4)
-        with open(self.skipped_solutions_file, 'w', encoding='utf-8') as f:
-            logger.info(f'Skipped solutions saved to {self.skipped_solutions_file}')
-            json.dump(self.skipped_solutions, f, ensure_ascii=False, indent=4)
-        with open(self.skipped_notifications_file, 'w', encoding='utf-8') as f:
-            logger.info(f'Skipped notifications saved to {self.skipped_notifications_file}')
-            json.dump(self.skipped_notifications, f, ensure_ascii=False, indent=4)
+        """Сохранение только current_session_likes.json"""
         with open(self.session_file, 'w', encoding='utf-8') as f:
             logger.info(f'Current session likes saved to {self.session_file}')
             json.dump(self.current_session_likes, f, ensure_ascii=False, indent=4)
