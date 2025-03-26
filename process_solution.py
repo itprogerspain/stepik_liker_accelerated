@@ -59,14 +59,13 @@ def process_solution(browser: MyBrowser, solution_url: str, ids_list: list[str] 
         logger.warning(f"No solutions found at {solution_url}")
         for like in likes_list:
             stat.update_like_status(like, status="awaiting")
+            if like.is_good:  # Помечаем прочитанными перед закрытием вкладки
+                browser.execute_script("arguments[0].scrollIntoView(true);", like.like)
+                like.mark_read()
+                logger.debug(f'{repr(like)} was marked as read with status "awaiting"')
         stat.dump_data()
         browser.close()
         browser.switch_to.window(browser.window_handles[0])
-        for like in likes_list:
-            if like.is_good:
-                browser.execute_script("arguments[0].scrollIntoView(true);", like.like)
-                like.mark_read()
-                logger.debug(f'{repr(like)} was marked')
         return 0, 0, 0
 
     liked = already_liked = 0
@@ -122,10 +121,10 @@ def process_solution(browser: MyBrowser, solution_url: str, ids_list: list[str] 
 
     for like in likes_list:
         status = next((entry['status'] for entry in stat.current_session_likes if entry['user_id'] == like.user_id and entry['url'] == like.what_was_liked_url), None)
-        if status in ["processed", "done before"]:
+        if status in ["processed", "done before", "awaiting"]:  # Добавляем "awaiting"
             browser.execute_script("arguments[0].scrollIntoView(true);", like.like)
             like.mark_read()
-            logger.debug(f'{repr(like)} was marked')
+            logger.debug(f'{repr(like)} was marked as read with status {status}')
         else:
             logger.debug(f'Skipping mark_read for {repr(like)} with status {status}')
 
