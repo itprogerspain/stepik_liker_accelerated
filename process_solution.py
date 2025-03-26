@@ -30,20 +30,18 @@ def process_solution(browser: MyBrowser, solution_url: str, ids_list: list[str] 
     STEPIK_SELF_ID = browser.STEPIK_SELF_ID
     friends_data = browser.friends_data
 
-    # Открываем страницу с решениями
-    browser.execute_script(f'window.open("{solution_url}", "_blank1");')  # open url in new tab
-    browser.switch_to.window(browser.window_handles[-1])  # switch to new tab
+    browser.execute_script(f'window.open("{solution_url}", "_blank1");')
+    browser.switch_to.window(browser.window_handles[-1])
     try:
         _ = browser.waiter.until(EC.presence_of_element_located((By.CLASS_NAME, "tab__item-counter")))
     except TimeoutException:
         logger.error(f"Failed to load solution page {solution_url}: tab__item-counter not found")
-        # Устанавливаем статус "error" для всех уведомлений, связанных с этой ссылкой
         for like in likes_list:
             stat.update_like_status(like, status="error")
         stat.dump_data()
-        browser.close()  # Закрываем вкладку
-        browser.switch_to.window(browser.window_handles[0])  # Возвращаемся к основной вкладке
-        return 0, 0, 0  # Возвращаем нули, так как обработка не удалась
+        browser.close()
+        browser.switch_to.window(browser.window_handles[0])
+        return 0, 0, 0
 
     sleep(random.uniform(2, 4))
 
@@ -51,58 +49,52 @@ def process_solution(browser: MyBrowser, solution_url: str, ids_list: list[str] 
     n_sols = '0'
     if len(comments_sols) == 2:
         comments, sols = comments_sols
-        n_sols = sols.get_attribute('data-value')  # количество решений
+        n_sols = sols.get_attribute('data-value')
     logger.debug(f'Общее количество решений: {n_sols}')
 
-    # Динамический скроллинг
     scroll_down(browser, n_sols, logger, element_class='comment-widget')
-    raw_solutions = browser.find_elements(By.CLASS_NAME, 'comment-widget')  # собираем все решения на странице
+    raw_solutions = browser.find_elements(By.CLASS_NAME, 'comment-widget')
 
-    # Проверяем, есть ли решения
     if not raw_solutions:
         logger.warning(f"No solutions found at {solution_url}")
-        # Устанавливаем статус "pending" для всех уведомлений, связанных с этой ссылкой
         for like in likes_list:
-            stat.update_like_status(like, status="pending")
+            stat.update_like_status(like, status="awaiting")
         stat.dump_data()
-        browser.close()  # Закрываем вкладку
-        browser.switch_to.window(browser.window_handles[0])  # Возвращаемся к основной вкладке
-        # Помечаем уведомления как прочитанные, так как отсутствие решений — это нормальный случай
+        browser.close()
+        browser.switch_to.window(browser.window_handles[0])
         for like in likes_list:
-            browser.execute_script("arguments[0].scrollIntoView(true);", like.like)
-            like.mark_read()
-            logger.debug(f'{repr(like)} was marked')
+            if like.is_good:
+                browser.execute_script("arguments[0].scrollIntoView(true);", like.like)
+                like.mark_read()
+                logger.debug(f'{repr(like)} was marked')
         return 0, 0, 0
 
     liked = already_liked = 0
-    error_occurred = False  # Флаг для отслеживания ошибок
+    error_occurred = False
 
     for i, raw_sol in enumerate(raw_solutions, 1):
         if not i % 20:
             logger.debug(f'Обработка решения {i} из {len(raw_solutions)}')
         solution = Solution(raw_sol, STEPIK_SELF_ID)
-        if solution.user_id == STEPIK_SELF_ID:  # если собственное решение - пропускаем без логирования в skipped_solutions
+        if solution.user_id == STEPIK_SELF_ID:
             continue
-        elif solution.voted:  # если уже лайкали - пропускаем
+        elif solution.voted:
             logger.info(f"Skipping already liked solution by {solution.user_name} (ID: {solution.user_id})")
             already_liked += 1
             stat.set_stat(solution, total_notifications)
-            # Устанавливаем статус "done before" для всех соответствующих уведомлений
             for like in likes_list:
                 if like.user_id == solution.user_id and like.what_was_liked_url in solution_url:
                     stat.update_like_status(like, status="done before")
         elif solution.user_id in friends_data or solution.user_id in ids_list:
             try:
                 browser.execute_script("arguments[0].scrollIntoView(true);", solution.sol)
-                if solution.like():  # Проверяем результат
-                    sleep(random.uniform(1, 3))  # Задержка после успешного лайка
+                if solution.like():
+                    sleep(random.uniform(1, 3))
                     liked += 1
-                    # Устанавливаем статус "processed" только при успешном лайке
                     for like in likes_list:
                         if like.user_id == solution.user_id and like.what_was_liked_url in solution_url:
                             stat.update_like_status(like, status="processed")
                 else:
-                    # Если лайк не проставился, устанавливаем статус "error"
                     for like in likes_list:
                         if like.user_id == solution.user_id and like.what_was_liked_url in solution_url:
                             stat.update_like_status(like, status="error")
@@ -124,25 +116,23 @@ def process_solution(browser: MyBrowser, solution_url: str, ids_list: list[str] 
     logger.info(f'{page_title} ({solution_url}). Всего решений {solution_count}')
     logger.info(f'Новых лайков: {liked}, старых лайков: {already_liked}')
 
-    sleep(1)  # Задержка перед закрытием страницы для полной загрузки
-    browser.close()  # Закрываем вкладку
-    browser.switch_to.window(browser.window_handles[0])  # Возвращаемся к основной вкладке
+    sleep(1)
+    browser.close()
+    browser.switch_to.window(browser.window_handles[0])
 
-    # Помечаем уведомления как прочитанные, только если не было ошибок
     for like in likes_list:
-        # Проверяем статус уведомления
         status = next((entry['status'] for entry in stat.current_session_likes if entry['user_id'] == like.user_id and entry['url'] == like.what_was_liked_url), None)
-        if status != "error":  # Не помечаем как прочитанное, если статус "error"
+        if status in ["processed", "done before"]:
             browser.execute_script("arguments[0].scrollIntoView(true);", like.like)
             like.mark_read()
             logger.debug(f'{repr(like)} was marked')
         else:
-            logger.debug(f'Skipping mark_read for {repr(like)} due to error status')
+            logger.debug(f'Skipping mark_read for {repr(like)} with status {status}')
 
     return liked, already_liked, len(raw_solutions)
 
 if __name__ == '__main__':
     url = 'https://stepik.org/lesson/361657/step/3?thread=solutions'
-    list_stepik_ids = []  # список айди, которые будут облайканы (помимо списка друзей)
+    list_stepik_ids = []
     browser = MyBrowser()
     process_solution(browser, url, list_stepik_ids)
