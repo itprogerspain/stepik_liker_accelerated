@@ -54,8 +54,7 @@ def process_likes(browser: MyBrowser):
             val['likes_list'].append(like)
             stat.set_stat(like)
         else:
-            stat.set_stat(like)
-            like.mark_read()  # Помечаем непрошедшие уведомления прочитанными
+            stat.set_stat(like)  # Убрали like.mark_read(), чтобы не помечать прочитанными
     stat.dump_data()
     return likes_data
 
