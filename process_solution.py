@@ -1,6 +1,7 @@
 from selenium.common import TimeoutException
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
 
 from time import sleep
 import random
@@ -17,18 +18,12 @@ stat = Statistics()
 
 def process_solution(browser: MyBrowser, solution_url: str, ids_list: list[str] | None = None,
                      likes_list: list[Like] | None = None, total_notifications: int = None) -> tuple[int, int, int]:
-    """
-    :param browser: браузер
-    :param solution_url: адрес страницы с решениями, которые нужно полайкать
-    :param ids_list: опционально. список stepik_id для ответных лайков
-    :param likes_list: опционально. Список лайков для пометки прочитанными
-    :param total_notifications: общее количество уведомлений в сессии
-    :return: (количество новых лайков, количество уже лайкнутых, общее количество решений)
-    """
     ids_list = ids_list or []
     likes_list = likes_list or []
     STEPIK_SELF_ID = browser.STEPIK_SELF_ID
     friends_data = browser.friends_data
+
+    main_window = browser.current_window_handle
 
     browser.execute_script(f'window.open("{solution_url}", "_blank1");')
     browser.switch_to.window(browser.window_handles[-1])
@@ -40,10 +35,28 @@ def process_solution(browser: MyBrowser, solution_url: str, ids_list: list[str] 
             stat.update_like_status(like, status="error")
         stat.dump_data()
         browser.close()
-        browser.switch_to.window(browser.window_handles[0])
+        browser.switch_to.window(main_window)
         return 0, 0, 0
 
     sleep(random.uniform(2, 4))
+
+    # Находим селектор сортировки и меняем его значение
+    try:
+        select = browser.waiter.until(
+            EC.presence_of_element_located((By.CLASS_NAME, "discussions__sorting"))
+        )
+        current_value = browser.execute_script("return arguments[0].value;", select)
+        logger.debug(f"Current sorting value on {solution_url}: {current_value}")
+
+        # Меняем сортировку: "by_date" -> "default" или "default" -> "by_date"
+        new_value = "default" if current_value == "by_date" else "by_date"
+        browser.execute_script(f"arguments[0].value = '{new_value}'; arguments[0].dispatchEvent(new Event('change'));", select)
+        logger.debug(f"Changed sorting to {new_value} on {solution_url}")
+        sleep(5)  # Ждём загрузки всех решений после смены сортировки
+    except TimeoutException:
+        logger.warning(f"Sorting selector not found on {solution_url}, proceeding without change")
+    except Exception as e:
+        logger.error(f"Failed to change sorting on {solution_url}: {str(e)}")
 
     comments_sols = browser.find_elements(By.CLASS_NAME, "tab__item-counter")
     n_sols = '0'
@@ -54,81 +67,75 @@ def process_solution(browser: MyBrowser, solution_url: str, ids_list: list[str] 
 
     scroll_down(browser, n_sols, logger, element_class='comment-widget')
     raw_solutions = browser.find_elements(By.CLASS_NAME, 'comment-widget')
+    logger.debug(f"Found {len(raw_solutions)} solutions with class 'comment-widget' at {solution_url}")
 
     if not raw_solutions:
         logger.warning(f"No solutions found at {solution_url}")
         for like in likes_list:
             stat.update_like_status(like, status="awaiting")
-            if like.is_good:  # Помечаем прочитанными перед закрытием вкладки
-                browser.execute_script("arguments[0].scrollIntoView(true);", like.like)
-                like.mark_read()
-                logger.debug(f'{repr(like)} was marked as read with status "awaiting"')
-        stat.dump_data()
-        browser.close()
-        browser.switch_to.window(browser.window_handles[0])
-        return 0, 0, 0
-
-    liked = already_liked = 0
-    error_occurred = False
-
-    for i, raw_sol in enumerate(raw_solutions, 1):
-        if not i % 20:
-            logger.debug(f'Обработка решения {i} из {len(raw_solutions)}')
-        solution = Solution(raw_sol, STEPIK_SELF_ID)
-        if solution.user_id == STEPIK_SELF_ID:
-            continue
-        elif solution.voted:
-            logger.info(f"Skipping already liked solution by {solution.user_name} (ID: {solution.user_id})")
-            already_liked += 1
-            stat.set_stat(solution, total_notifications)
-            for like in likes_list:
-                if like.user_id == solution.user_id and like.what_was_liked_url in solution_url:
-                    stat.update_like_status(like, status="done before")
-        elif solution.user_id in friends_data or solution.user_id in ids_list:
-            try:
-                browser.execute_script("arguments[0].scrollIntoView(true);", solution.sol)
-                if solution.like():
-                    sleep(random.uniform(1, 3))
-                    liked += 1
-                    for like in likes_list:
-                        if like.user_id == solution.user_id and like.what_was_liked_url in solution_url:
-                            stat.update_like_status(like, status="processed")
-                else:
-                    for like in likes_list:
-                        if like.user_id == solution.user_id and like.what_was_liked_url in solution_url:
-                            stat.update_like_status(like, status="error")
-                    error_occurred = True
-            except Exception as e:
-                logger.error(f"Failed to like solution by {solution.user_name} (ID: {solution.user_id}) at {solution_url}: {str(e)}")
-                stat.set_stat(solution, total_notifications, failed=True)
-                for like in likes_list:
-                    if like.user_id == solution.user_id and like.what_was_liked_url in solution_url:
-                        stat.update_like_status(like, status="error")
-                error_occurred = True
-        else:
-            stat.set_stat(solution, total_notifications)
 
     stat.dump_data()
 
     page_title = browser.execute_script("return document.title;")
     solution_count = len(raw_solutions)
     logger.info(f'{page_title} ({solution_url}). Всего решений {solution_count}')
-    logger.info(f'Новых лайков: {liked}, старых лайков: {already_liked}')
+    if raw_solutions:
+        liked = already_liked = 0
+        for i, raw_sol in enumerate(raw_solutions, 1):
+            if not i % 20:
+                logger.debug(f'Обработка решения {i} из {len(raw_solutions)}')
+            solution = Solution(raw_sol, STEPIK_SELF_ID)
+            if solution.user_id == STEPIK_SELF_ID:
+                continue
+            elif solution.voted:
+                logger.info(f"Skipping already liked solution by {solution.user_name} (ID: {solution.user_id})")
+                already_liked += 1
+                stat.set_stat(solution, total_notifications)
+                for like in likes_list:
+                    if like.user_id == solution.user_id and like.what_was_liked_url in solution_url:
+                        stat.update_like_status(like, status="done before")
+            elif solution.user_id in friends_data or solution.user_id in ids_list:
+                try:
+                    browser.execute_script("arguments[0].scrollIntoView(true);", solution.sol)
+                    if solution.like():
+                        sleep(random.uniform(1, 3))
+                        liked += 1
+                        for like in likes_list:
+                            if like.user_id == solution.user_id and like.what_was_liked_url in solution_url:
+                                stat.update_like_status(like, status="processed")
+                    else:
+                        for like in likes_list:
+                            if like.user_id == solution.user_id and like.what_was_liked_url in solution_url:
+                                stat.update_like_status(like, status="error")
+                except Exception as e:
+                    logger.error(f"Failed to like solution by {solution.user_name} (ID: {solution.user_id}) at {solution_url}: {str(e)}")
+                    stat.set_stat(solution, total_notifications, failed=True)
+                    for like in likes_list:
+                        if like.user_id == solution.user_id and like.what_was_liked_url in solution_url:
+                            stat.update_like_status(like, status="error")
+            else:
+                stat.set_stat(solution, total_notifications)
+
+        stat.dump_data()
+        logger.info(f'Новых лайков: {liked}, старых лайков: {already_liked}')
 
     sleep(1)
     browser.close()
-    browser.switch_to.window(browser.window_handles[0])
+    browser.switch_to.window(main_window)
 
     for like in likes_list:
         status = next((entry['status'] for entry in stat.current_session_likes if entry['user_id'] == like.user_id and entry['url'] == like.what_was_liked_url), None)
-        if status in ["processed", "done before", "awaiting"]:  # Добавляем "awaiting"
-            browser.execute_script("arguments[0].scrollIntoView(true);", like.like)
-            like.mark_read()
-            logger.debug(f'{repr(like)} was marked as read with status {status}')
+        if status in ["processed", "done before", "awaiting"]:
+            try:
+                browser.execute_script("arguments[0].scrollIntoView(true);", like.like)
+                like.mark_read()
+                logger.debug(f'{repr(like)} was marked as read with status {status}')
+            except Exception as e:
+                logger.error(f"Failed to mark {repr(like)} as read: {str(e)}")
         else:
             logger.debug(f'Skipping mark_read for {repr(like)} with status {status}')
 
-    return liked, already_liked, len(raw_solutions)
+    return liked if 'liked' in locals() else 0, already_liked if 'already_liked' in locals() else 0, len(raw_solutions)
 
 if __name__ == '__main__':
     url = 'https://stepik.org/lesson/361657/step/3?thread=solutions'
