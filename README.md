@@ -14,8 +14,8 @@ C Хромом имел постоянные проблемы - при откр�
 ---
 Для работы надо создать в папке проекта `.env` файл вида
 ```
-STEPIK_USERNAME=your_stepik_id
-STEPIK_PASSWORD=your_stepik_password
+STEPIK_USERNAME='your_stepik_email'
+STEPIK_PASSWORD='your_stepik_password'
 ```
 ---
 Если хочется раздавать лайки по списку друзей - создать в папке проекте файл `friends_list.yml`
