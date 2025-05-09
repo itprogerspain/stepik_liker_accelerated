@@ -113,11 +113,21 @@ class MyFirefoxBrowser(webdriver.Firefox):
         except Exception as e:
             logger.error(f"Failed to find or click like buttons on {self.current_url}: {str(e)}")
 
+
+
+
+
+
+
+
 class MyChromeBrowser(webdriver.Chrome):
     __instance = None
 
     options = ChromeOptions()
     options.add_argument('--disable-site-isolation-trials')
+    # options.add_argument('--headless')  # Добавляем фоновый режим
+    # options.add_argument('--disable-gpu')  # Для стабильности в headless
+    # options.add_argument('--no-sandbox')  # Отключение песочницы
 
     def __new__(cls, *args, **kwargs):
         if not cls.__instance:
@@ -164,6 +174,7 @@ class MyChromeBrowser(webdriver.Chrome):
         self.find_element(By.CLASS_NAME, 'navbar__profile-toggler').click()
         user_profile = self.waiter.until(EC.presence_of_element_located((By.CSS_SELECTOR, "[data-qa='menu-item-profile']")))
         *_, self.STEPIK_SELF_ID, _ = user_profile.find_element(By.TAG_NAME, 'a').get_attribute('href').split('/')
+        self.refresh() # обновление страницы после логина
         sleep(2)
 
     def open_new_tab(self, url):

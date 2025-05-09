@@ -50,7 +50,7 @@ class Statistics:
                 'user_id': user_id,
                 'user_name': user_name,
                 'url': item.what_was_liked_url,
-                'timestamp': datetime.now().isoformat(),
+                "timestamp": datetime.now().strftime("%d %B %Y, %H:%M:%S"),
                 'status': 'its a comment'
             })
             logger.info(f"Added like from {user_name} (ID: {user_id}) to current session with status 'its a comment'")
@@ -68,7 +68,7 @@ class Statistics:
                 'user_id': user_id,
                 'user_name': user_name,
                 'url': item.what_was_liked_url,
-                'timestamp': datetime.now().isoformat(),
+                "timestamp": datetime.now().strftime("%d %B %Y, %H:%M:%S"),
                 'status': 'awaiting'
             })
             logger.info(f"Added like from {user_name} (ID: {user_id}) to current session with initial status 'awaiting'")
