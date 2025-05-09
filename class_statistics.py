@@ -85,7 +85,7 @@ class Statistics:
         for entry in self.current_session_likes:
             if entry['user_id'] == like.user_id and entry['url'] == like.what_was_liked_url:
                 entry['status'] = status
-                entry['timestamp'] = datetime.now().isoformat()
+                entry['timestamp'] = datetime.now().strftime("%d %B %Y, %H:%M:%S")
                 logger.info(f"Updated like from {like.user_name} (ID: {like.user_id}) to status {entry['status']} at {entry['timestamp']}")
                 break
 
