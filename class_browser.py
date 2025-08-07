@@ -124,7 +124,13 @@ class MyChromeBrowser(webdriver.Chrome):
     __instance = None
 
     options = ChromeOptions()
+
+    # отключает экспериментальную функцию изоляции сайтов
     options.add_argument('--disable-site-isolation-trials')
+
+    # отключает функцию обнаружения автоматизации в движке рендеринга Chrome (Blink).
+    # options.add_argument("--disable-blink-features=AutomationControlled")
+
     # options.add_argument('--headless')  # Добавляем фоновый режим
     # options.add_argument('--disable-gpu')  # Для стабильности в headless
     # options.add_argument('--no-sandbox')  # Отключение песочницы
@@ -168,13 +174,17 @@ class MyChromeBrowser(webdriver.Chrome):
             raise
 
         self.cookies = self.get_cookies()
+
+        self.refresh()  # обновление страницы после логина
+        sleep(2)
+
         self._finish_login()
 
     def _finish_login(self):
         self.find_element(By.CLASS_NAME, 'navbar__profile-toggler').click()
         user_profile = self.waiter.until(EC.presence_of_element_located((By.CSS_SELECTOR, "[data-qa='menu-item-profile']")))
         *_, self.STEPIK_SELF_ID, _ = user_profile.find_element(By.TAG_NAME, 'a').get_attribute('href').split('/')
-        self.refresh() # обновление страницы после логина
+        # self.refresh() # обновление страницы после логина
         sleep(2)
 
     def open_new_tab(self, url):
